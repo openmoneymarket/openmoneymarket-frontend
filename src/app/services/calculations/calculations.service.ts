@@ -211,12 +211,14 @@ export class CalculationsService {
 
   /** Formulae: Omm's Voting Power/Total staked OMM tokens */
   public votingPower(userNewbOmmBalance: BigNumber = new BigNumber(0)): BigNumber {
-    log.debug(`votingPower():`);
+    log.debug(`calculation service votingPower():`);
     const ommVotingPower = this.ommVotingPower();
     const totalbOmmBalance = this.persistenceService.bOmmTotalSupply.plus(userNewbOmmBalance.minus(
       this.persistenceService.userbOmmBalance));
     log.debug(`ommVotingPower = ${ommVotingPower}`);
     log.debug(`totalbOmmBalance = ${totalbOmmBalance}`);
+    log.debug(`userNewbOmmBalance = ${userNewbOmmBalance}`);
+    log.debug(`this.persistenceService.userbOmmBalance = ${this.persistenceService.userbOmmBalance}`);
 
     if (ommVotingPower.isZero() || totalbOmmBalance.isZero()) {
       return new BigNumber("0");

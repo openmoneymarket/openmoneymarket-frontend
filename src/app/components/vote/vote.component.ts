@@ -412,6 +412,7 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   updateVotingPowerPerIcx(newLockedOmmAmount: BigNumber, date?: LockDate): void {
+    log.debug("updateVotingPowerPerIcx()");
     const newUserbOmmBalance = this.calculationService.calculateNewbOmmBalance(newLockedOmmAmount,
       this.ommLockingComponent.selectedLockTimeInMillisec);
     const votingPower = this.calculationsService.votingPower(newUserbOmmBalance);
