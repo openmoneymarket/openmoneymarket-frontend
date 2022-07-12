@@ -333,8 +333,8 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   getDelegationAmount(yourPrepVote: YourPrepVote): BigNumber {
-    return (this.persistenceService.getUsersLockedOmmBalance().multipliedBy((yourPrepVote.percentage
-      .dividedBy(new BigNumber("100"))).multipliedBy(this.votingPower))).dp(2);
+    return (this.yourVotingPower.multipliedBy((yourPrepVote.percentage
+      .dividedBy(new BigNumber("100"))))).dp(2);
   }
 
   getLatestProposals(): Proposal[] {
