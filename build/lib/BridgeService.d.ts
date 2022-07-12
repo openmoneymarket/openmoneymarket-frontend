@@ -1,31 +1,16 @@
 import { MagicUserMetadata } from 'magic-sdk';
 import { BigNumber } from 'bignumber.js';
 import { UserApiService } from "./services/user-api-service";
-import { AccountApiService } from "./services/account-api-service";
-import { CreditCardApiService } from "./services/credit-card-api-service";
 import { IconApiService } from "./services/icon-api-service";
-import { PlaidLinkApiService } from "./services/plaid-link-api-service";
-import { ContributionsApiService } from "./services/contributions-api-service";
-import { KycApiService } from "./services/kyc-api-service";
-import { WithdrawApiService } from "./services/withdraw-api-service";
 import { MagicLoginResponse } from "./models/Interfaces/MagicLogin";
 import { SupportedTokens } from './models/Tokens/Tokens';
-import { UtilsApiService } from "./services/utils-api-service";
 declare const IconService: any;
 export declare class BridgeService {
     private readonly magic;
     magicUserMetadata: MagicUserMetadata | undefined;
     readonly iconSdk: typeof IconService;
     userApiService: UserApiService;
-    accountApiService: AccountApiService;
-    kycApiService: KycApiService;
     iconApiService: IconApiService;
-    plaidLinkApiService: PlaidLinkApiService;
-    creditCardApiService: CreditCardApiService;
-    contributionsApiService: ContributionsApiService;
-    withdrawApiService: WithdrawApiService;
-    utilsApiService: UtilsApiService;
-    plaidLinkHandler: any;
     constructor();
     /**
      * @description Login user in to Magic using email and dispatch login event
@@ -122,18 +107,6 @@ export declare class BridgeService {
      * @throws {BridgeError} - contains user friendly message and external error (if present)
      */
     updateEmail(email: string): Promise<void>;
-    /**
-     * @description Load and initialise Plaid Link script
-     * @return {Promise<void>} Promise with empty response.
-     * @throws {BridgeError} - contains user friendly message and external error (if present)
-     */
-    loadPlaid(): Promise<void>;
-    /**
-     * @description Dispatch event to initialize Prime Trust credit card widget.
-     * @param {HTMLElement} target - Target HTML element in which to initialize widget
-     * @param {string} resourceTokenHash - Credit card resource token hash
-     */
-    dispatchCreditCardWidgetInitEvent(target: HTMLElement, resourceTokenHash: string): void;
     private checkMagicInitialized;
     private checkUserMetadataInitialized;
 }

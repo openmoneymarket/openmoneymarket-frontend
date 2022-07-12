@@ -1,19 +1,17 @@
-import { Component, OnInit } from '@angular/core';
+import {Component, OnInit} from '@angular/core';
 import {PersistenceService} from "../../services/persistence/persistence.service";
 import BigNumber from "bignumber.js";
-import {TransactionDispatcherService} from "../../services/transaction-dispatcher/transaction-dispatcher.service";
-import {ScoreService} from "../../services/score/score.service";
 import {ModalService} from "../../services/modal/modal.service";
-import {GovernanceAction} from "../../models/GovernanceAction";
-import {ModalType} from "../../models/ModalType";
-import {CreateProposal, Proposal} from "../../models/Proposal";
+import {GovernanceAction} from "../../models/classes/GovernanceAction";
+import {ModalType} from "../../models/enums/ModalType";
+import {CreateProposal} from "../../models/classes/Proposal";
 import {NotificationService} from "../../services/notification/notification.service";
 import {Utils} from "../../common/utils";
 import {ommForumDomain} from "../../common/constants";
 
 @Component({
   selector: 'app-new-proposal',
-  templateUrl: './new-proposal.component.html'
+  templateUrl: './new-proposal.component.html',
 })
 export class NewProposalComponent implements OnInit {
 
@@ -26,8 +24,6 @@ export class NewProposalComponent implements OnInit {
   forumLink = "";
 
   constructor(public persistenceService: PersistenceService,
-              private txDispatcher: TransactionDispatcherService,
-              private scoreService: ScoreService,
               private modalService: ModalService,
               private notificationService: NotificationService) { }
 
@@ -68,7 +64,7 @@ export class NewProposalComponent implements OnInit {
   }
 
   userHasEnoughOmmStaked(): boolean {
-    return this.persistenceService.getUsersStakedOmmBalance().gte(this.persistenceService.getMinOmmStakedRequiredForProposal());
+    return this.persistenceService.getUsersLockedOmmBalance().gte(this.persistenceService.getMinOmmStakedRequiredForProposal());
   }
 
   onSubmitClick(): void {
@@ -89,8 +85,8 @@ export class NewProposalComponent implements OnInit {
       this.notificationService.showNewNotification(`Must link to a discussion on ${ommForumDomain}.`);
       return;
     } else if (!this.userHasEnoughOmmStaked()) {
-      this.notificationService.showNewNotification(`Stake at least ${this.persistenceService.getMinOmmStakedRequiredForProposal()
-      } OMM if you want to propose a change.`);
+      this.notificationService.showNewNotification(`You need at least ${Utils.tooUSLocaleString(Utils.roundOffTo2Decimals(
+        this.persistenceService.getMinOmmStakedRequiredForProposal()))} bOMM to propose a change.`);
       return;
     }
 

@@ -1,4 +1,4 @@
-import {Asset, AssetTag, CollateralAssetTag, supportedAssetsMap} from "../Asset";
+import {Asset, AssetTag, CollateralAssetTag, supportedAssetsMap} from "../classes/Asset";
 import BigNumber from "bignumber.js";
 
 export abstract class Wallet {

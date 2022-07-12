@@ -1,1 +1,0 @@
-{"version":3,"file":"PrimaryPhoneNumber.d.ts","sourceRoot":"","sources":["../../../../src/lib/models/PrimeTrust/PrimaryPhoneNumber.ts"],"names":[],"mappings":"AAAA,qBAAa,kBAAkB;IAE3B,YAAY,EAAE,MAAM,CAAC;IACrB,WAAW,EAAE,MAAM,CAAC;IACpB,GAAG,EAAE,OAAO,CAAC;gBAED,YAAY,EAAE,MAAM,EAAE,WAAW,EAAE,MAAM,EAAE,GAAG,EAAE,OAAO;CAMtE"}

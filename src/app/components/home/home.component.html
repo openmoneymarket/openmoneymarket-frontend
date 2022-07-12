@@ -13,7 +13,7 @@
 
       <div class="grid-cell">
           <label *ngIf="shouldShowOmmPriceAndToggle()" id="apr-toggle">
-            <input id="apr-toggle-checkbox" type="checkbox" [(ngModel)]="ommApyChecked" (change)="ommApyToggleChanged()">
+            <input id="apr-toggle-checkbox" type="checkbox" [(ngModel)]="ommApyChecked">
             <span class="switch-slider round"></span>
           </label>
           <div class="apy-tooltip-container">
@@ -27,94 +27,20 @@
     </div>
 
         <!-- Your overview content -->
-        <div id="your-overview-content" class="grid panel" [ngStyle]="hideElement(isMarketOverviewActive() || !userLoggedIn())">
-          <!-- Supplied -->
-          <div class="grid-cell border-right">
-            <div class="grid">
-              <!-- You've supplied -->
-              <div class="grid-cell text-center">
-                <dl class="metadata">
-                  <dt>You've supplied</dt>
-                  <dd class="value-supplied-total">{{this.toDollarUSLocaleString(this.persistenceService.getUserTotalSuppliedUSD() | roundOff2Dec)}}</dd>
-                </dl>
-              </div>
+        <app-your-overview style="display: contents"
+          [marketOverviewActive]="isMarketOverviewActive()"
+          [ommApyChecked]="ommApyChecked"
+        >
 
-          <!-- Your supply APY -->
-          <div class="grid-cell text-center">
-            <dl class="metadata">
-              <dt class="">Your supply APY</dt>
-              <dd class="text-green value-supplied-apy">{{to2DecimalRoundedOffPercentString(this.calculationService.getYourSupplyApy(ommApyChecked))}}</dd>
-            </dl>
-          </div>
-        </div>
-      </div>
-
-      <!-- Borrowed -->
-      <div class="grid-cell">
-        <div class="grid">
-          <!-- You've borrowed -->
-          <div class="grid-cell text-center">
-            <dl class="metadata">
-              <dt>You've borrowed</dt>
-              <dd class="value-borrowed-total">{{this.toDollarUSLocaleString(this.persistenceService.getUserTotalBorrowedUSD() | roundOff2Dec)}}</dd>
-            </dl>
-          </div>
-
-          <!-- Your borrow APR -->
-          <div class="grid-cell text-center">
-            <dl class="metadata">
-              <dt>Your borrow APR</dt>
-              <dd class="{{isNegative(this.calculationService.getYourBorrowApy(ommApyChecked)) ? 'text-purple' : 'text-green'}} value-borrowed-apy">{{to2DecimalRoundedOffPercentString(makeAbsolute(this.calculationService.getYourBorrowApy(ommApyChecked)))}}</dd> <!-- Borrow APY -->
-            </dl>
-          </div>
-        </div>
-      </div>
-    </div>
+        </app-your-overview>
 
         <!-- Market overview content -->
-        <div id="market-overview-content" class="grid panel" [ngStyle]="hideElement(!isMarketOverviewActive())">
-          <!-- Supplied -->
-          <div class="grid-cell border-right">
-            <div class="grid">
-              <!-- Total supplied -->
-              <div class="grid-cell text-center">
-                <dl class="metadata">
-                  <dt>Total supplied</dt>
-                  <dd>{{this.toDollarUSLocaleString(this.persistenceService.getTotalSuppliedUSD() | roundOff0Dec)}}</dd>
-                </dl>
-              </div>
+        <app-market-overview style="display: contents"
+         [marketOverviewActive]="isMarketOverviewActive()"
+         [ommApyChecked]="ommApyChecked"
+        >
 
-              <!-- Total supply APY -->
-              <div class="grid-cell text-center">
-                <dl class="metadata">
-                  <dt>Avg supply APY</dt>
-                  <dd class="text-green">{{to2DecimalRoundedOffPercentString(this.calculationService.getTotalAvgSupplyApy(ommApyChecked))}}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <!-- Borrowed -->
-          <div class="grid-cell">
-            <div class="grid">
-              <!-- Total borrowed -->
-              <div class="grid-cell text-center">
-                <dl class="metadata">
-                  <dt>Total borrowed</dt>
-                  <dd>{{this.toDollarUSLocaleString(this.persistenceService.getTotalBorrowedUSD() | roundOff0Dec)}}</dd>
-                </dl>
-              </div>
-
-              <!-- Total borrow APY -->
-              <div class="grid-cell text-center">
-                <dl class="metadata">
-                  <dt>Avg borrow APR</dt>
-                  <dd class="{{isNegative(this.calculationService.getTotalAvgBorrowApy(ommApyChecked)) ? 'text-purple' : 'text-green'}}">{{to2DecimalRoundedOffPercentString(makeAbsolute(this.calculationService.getTotalAvgBorrowApy(ommApyChecked)))}}</dd> <!-- Borrow APY -->
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+        </app-market-overview>
       </section>
 
   <!-- Performance / Risk , hide if user not logged in or he has not supplied any asset-user -->
@@ -130,7 +56,7 @@
     <!-- Risk -->
     <div class="grid-cell">
       <section id="risk">
-        <app-risk style="display: contents" [userAssetComponents]="assetComponents"></app-risk>
+        <app-risk #riskComponent style="display: contents"></app-risk>
       </section>
     </div>
   </div>
@@ -166,7 +92,7 @@
               <th>Borrow APR <span class="borrow-apy-tooltip tooltip">
 													<span class="tooltip-item"><img src="assets/img/icon/question.svg" class="tooltip-icon"></span>
 													<div class="tooltip-content"><p class="borrow-apy-tooltip-content">{{
-                            ommApyChecked ? "The amount you’ll owe from interest, minus the OMM you’ll earn, if you supply an asset for 1 year. Rates vary based on supply and demand.":
+                            ommApyChecked ? "The amount you’ll owe from interest, minus the OMM you’ll earn, if you borrow an asset for 1 year. Rates vary based on supply and demand.":
                               "The amount of interest you’ll owe if you borrow an asset for 1 year. Rates vary based on supply and demand."
                             }}</p></div>
 												</span></th>
@@ -186,7 +112,7 @@
               <th>Borrow APR <span class="borrow-apy-tooltip tooltip">
 													<span class="tooltip-item"><img src="assets/img/icon/question.svg" class="tooltip-icon"></span>
 													<div class="tooltip-content"><p class="borrow-apy-tooltip-content">{{
-                            ommApyChecked ? "The amount you’ll owe from interest, minus the OMM you’ll earn, if you supply an asset for 1 year. Rates vary based on supply and demand.":
+                            ommApyChecked ? "The amount you’ll owe from interest, minus the OMM you’ll earn, if you borrow an asset for 1 year. Rates vary based on supply and demand.":
                               "The amount of interest you’ll owe if you borrow an asset for 1 year. Rates vary based on supply and demand."
                             }}</p></div>
 												</span></th>
@@ -200,7 +126,7 @@
               <!-- Asset (USDb, ICX, ..) -->
               <app-asset [asset]="asset" #assetEl
                          [ommApyChecked]="ommApyChecked"
-                         [riskSlider]="riskComponent.sliderRisk"
+                         [riskSlider]="riskComponent.sliderRiskEl"
                          [index]="i"
                          [activeMarketView]="activeMarketView"
                          [ngStyle]="{display: 'contents'}"

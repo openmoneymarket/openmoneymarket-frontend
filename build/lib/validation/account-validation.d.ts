@@ -1,25 +1,9 @@
-import { NaturalPersonContactUS } from "../models/PrimeTrust/NaturalPersonContactUS";
-import { CompanyContactUS } from "../models/PrimeTrust/CompanyContactUS";
-import { Account } from "../models/PrimeTrust/Account";
 export declare function validateEmail(email: string | undefined): boolean;
 export declare function validateFileExtension(filename: string | undefined): boolean;
 export declare function validateName(name: string | undefined): boolean;
-export declare function validateContactType(contactType: string | undefined, owner: NaturalPersonContactUS | CompanyContactUS | undefined): boolean;
 export declare function validateUsPostalCode(postalCode: string | undefined): boolean;
 export declare function validateStreet(street: string | undefined): boolean;
-export declare function validateUSstateCode(stateCode: string | undefined): boolean;
-export declare function validateTaxCountry(country: string | undefined): boolean;
-export declare function validatePrimaryAddressCountry(country: string | undefined): boolean;
-export declare function validatePrimaryAddressRegionUS(country: string | undefined): boolean;
-export declare function validatePhoneCountry(country: string | undefined): boolean;
-export declare function validatePhoneNumber(phoneNumber: string | undefined): boolean;
 export declare function validateDateString(dateString: string | undefined): boolean;
-export declare function validateSex(sex: string | undefined): boolean;
 export declare function validateTaxIdNumber(taxIdNumber: string | undefined): boolean;
 export declare function validateUuidV4(uuidV4: string | undefined): boolean;
-export declare function validateKycDocumentType(kycDocumentType: string | undefined): boolean;
-export declare function validateKycOtherDocumentType(kycOtherDocumentType: string | undefined): boolean;
-export declare function validateKycDocumentCountry(kycDocumentCountry: string | undefined): boolean;
-export declare function validateCompanyContactType(contactType: string | undefined): boolean;
-export declare function validateAccount(account: Account | undefined, contactHasUSTaxInfo: boolean, hasUSAddress: boolean): string[];
 //# sourceMappingURL=account-validation.d.ts.map

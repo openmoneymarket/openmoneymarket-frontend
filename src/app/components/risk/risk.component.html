@@ -12,11 +12,11 @@
 <!-- Risk content -->
 <div class="grid panel">
   <div class="grid-cell">
-    <div class="risk-container" [ngStyle]="hideElement(this.persistenceService.userHasNotBorrowedAnyAsset())" #riskContainer>
+    <div class="risk-container" [ngStyle]="hideElement(userBorrowIsZero())" #riskContainer>
       <p class="label risk-message-liquidated"><span>Your supply will be liquidated at 100%.</span></p>
-      <div id="slider-risk" disabled></div>
+      <div id="slider-risk" #sliderRisk disabled></div>
     </div>
     <p class="risk-message-noassets label text-center hide"
-       [ngStyle]="displayAsBlockOrHide(this.persistenceService.userHasNotBorrowedAnyAsset())">You have no risk until you borrow an asset.</p>
+       [ngStyle]="displayAsBlockOrHide(userBorrowIsZero())">You have no risk until you borrow an asset.</p>
   </div>
 </div>

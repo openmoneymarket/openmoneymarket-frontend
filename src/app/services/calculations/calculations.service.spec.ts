@@ -2,9 +2,9 @@ import { TestBed } from '@angular/core/testing';
 
 import { CalculationsService } from './calculations.service';
 import {HttpClientTestingModule} from "@angular/common/http/testing";
-import {ReserveData} from "../../models/AllReservesData";
-import {AssetTag} from "../../models/Asset";
-import {UserReserveData} from "../../models/UserReserveData";
+import {ReserveData} from "../../models/classes/AllReservesData";
+import {AssetTag} from "../../models/classes/Asset";
+import {UserReserveData} from "../../models/classes/UserReserveData";
 import BigNumber from "bignumber.js";
 
 describe('CalculationsService', () => {
@@ -82,40 +82,6 @@ describe('CalculationsService', () => {
 
     expect(service.supplyOmmApyFormula(dailySupplyRewards, ommPriceUSD, reserveData as ReserveData, AssetTag.USDS).toNumber())
       .toBeCloseTo(new BigNumber("1134.7042391864052").toNumber(), 2);
-  });
-
-  it('Test userBorrowOmmRewardsFormula USDS', () => {
-    const dailyBorrowRewards = new BigNumber("8000");
-    const borrowAmount = new BigNumber("1032.86");
-    const userBorrowAmount = new BigNumber("50.02");
-
-    const reserveData = {
-      totalBorrows: borrowAmount,
-    } as ReserveData;
-
-    const userReserveData = {
-      currentBorrowBalance: userBorrowAmount,
-    } as UserReserveData;
-
-    expect(service.userBorrowOmmRewardsFormula(dailyBorrowRewards, reserveData, userReserveData).toNumber())
-      .toBeCloseTo(new BigNumber("387.4290804174816").toNumber(), 2);
-  });
-
-  it('Test userBorrowOmmRewardsFormula iUSDC', () => {
-    const dailyBorrowRewards = new BigNumber("8000");
-    const borrowAmount = new BigNumber("935.01");
-    const userBorrowAmount = new BigNumber("50.01");
-
-    const reserveData = {
-      totalBorrows: borrowAmount,
-    } as ReserveData;
-
-    const userReserveData = {
-      currentBorrowBalance: userBorrowAmount,
-    } as UserReserveData;
-
-    expect(service.userBorrowOmmRewardsFormula(dailyBorrowRewards, reserveData, userReserveData).toNumber())
-      .toBeCloseTo(new BigNumber("427.8884718").toNumber(), 2);
   });
 
   it('Test userSupplyOmmRewardsFormula sICX', () => {

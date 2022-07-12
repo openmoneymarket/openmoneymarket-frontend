@@ -6,7 +6,7 @@ import BridgeService from "../../../../build/bridge.bundle";
 import {BridgeWallet} from "../../models/wallets/BridgeWallet";
 import {DataLoaderService} from "../data-loader/data-loader.service";
 import log from "loglevel";
-import {BridgeWidgetAction} from "../../models/BridgeWidgetAction";
+import {BridgeWidgetAction} from "../../models/Interfaces/BridgeWidgetAction";
 import {NotificationService} from "../notification/notification.service";
 import {LoginService} from "../login/login.service";
 import {Utils} from "../../common/utils";
@@ -52,8 +52,6 @@ export class BridgeWidgetService {
   }
 
   handleWidgetLogoutRes(e: any): void {
-    const publicAddress: string = e.detail.publicAddress;
-    const email: string = e.detail.email;
     const error: string = e.detail.error;
 
     if (error) {
@@ -65,7 +63,6 @@ export class BridgeWidgetService {
 
   handleWidgetRes(e: any): void {
     const error: string = e.detail.error;
-    const action: BridgeWidgetAction = e.detail.success;
 
     if (error) {
       throw new OmmError(error);

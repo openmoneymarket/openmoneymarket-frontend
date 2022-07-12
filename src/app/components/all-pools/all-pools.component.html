@@ -1,0 +1,25 @@
+<!-- All pools -->
+<table id="all-pools" class="list liquidity" [ngClass]="!isAllPoolsActive() ? 'hide':''">
+  <thead>
+  <tr>
+    <th>Pool</th>
+    <th>Total supplied</th>
+    <th>Total LP tokens</th>
+    <th>Daily rewards</th>
+    <th>Liquidity APR</th>
+  </tr>
+  </thead>
+  <tbody>
+  <ng-container *ngFor="let poolData of allPools; last as isLast;">
+    <app-all-pool-row style="display: contents" #pool
+                      [poolData]="poolData"
+                      (poolClickUpdate)="onPoolClick($event)"
+    >
+
+    </app-all-pool-row>
+
+    <!-- Spacer -->
+    <tr *ngIf="!isLast" class="spacer"></tr>
+  </ng-container>
+  </tbody>
+</table>

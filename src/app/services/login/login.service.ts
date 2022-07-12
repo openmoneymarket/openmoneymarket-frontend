@@ -59,7 +59,7 @@ export class LoginService {
     // gracefully fetch Omm part
     try {
       await Promise.all([
-        this.dataLoaderService.loadUserOmmRewards(),
+        this.dataLoaderService.loadUserAccumulatedOmmRewards(),
         this.dataLoaderService.loadUserOmmTokenBalanceDetails()
       ]);
     } catch (e) {

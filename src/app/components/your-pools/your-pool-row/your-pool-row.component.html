@@ -1,0 +1,33 @@
+<tr class="pool {{poolPairClassName}}" #pool (click)="onPoolClick(poolData)">
+  <td class="text-dark">{{poolPrettyName}}</td>
+  <td><span class="text-dark">{{userSuppliedBase | roundOff2Dec | usFormat}} OMM</span><br>
+    <span class="label">{{userSuppliedQuote | roundOff2Dec | usFormat}} {{poolQuoteAssetName}}</span></td>
+  <td><span class="text-dark">{{userStakedBalance | roundDown2Dec | usFormat}}</span><br>
+    <span class="label">{{userAvailableBalance | roundDown2Dec | usFormat}} available</span></td>
+  <td><span class="text-dark" #dailyRew>{{userDailyRewards | roundOff2Dec | usFormat}} OMM</span><br>
+    <span class="label" #dailyRewUSD>{{userDailyRewardsUSD | roundOff2Dec | dollarUsLocale}}</span></td>
+  <td class="text-green" #liqApr>{{userPoolLiquidityApr | roundOff2DecPercent}}</td>
+</tr>
+
+<!-- Pool expanded -->
+<tr class="expanded">
+  <td colspan="5">
+    <div class="pool-expanded pool-{{poolPairClassName}}-expanded hide" #poolExpandedEl>
+      <div class="grid border-top">
+        <div class="grid-cell text-center content">
+          <h2>Stake LP tokens</h2>
+          <p>Supply liquidity on <a href="{{isProduction() ? 'https://app.balanced.network/trade' :'https://omm.balanced.network/trade'}}" target="_blank"
+          >Balanced</a>, then<br>stake your LP tokens here to earn OMM.</p>
+          <div class="slider-stake" disabled></div>
+
+          <app-pool-stake-slider *ngIf="userLoggedIn() && userHasLpTokenAvailableOrHasStaked"
+                                 [poolIdSet]="poolData.poolId"
+                                 (sliderValueUpdate)="handlePoolSliderValueUpdate($event)"
+                                 (cancelClicked)="onStakeSliderCancelClicked()"
+          ></app-pool-stake-slider>
+
+        </div>
+      </div>
+    </div>
+  </td>
+</tr>

@@ -8,7 +8,7 @@ import {NotificationService} from "../notification/notification.service";
 import {environment} from "../../../environments/environment";
 import {PersistenceService} from "../persistence/persistence.service";
 import {LedgerWallet} from "../../models/wallets/LedgerWallet";
-import {AssetTag} from "../../models/Asset";
+import {AssetTag} from "../../models/classes/Asset";
 import {IconApiService} from "../icon-api/icon-api.service";
 import {OmmError} from "../../core/errors/OmmError";
 

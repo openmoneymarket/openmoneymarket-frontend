@@ -3,10 +3,12 @@ import {IconApiService} from "../icon-api/icon-api.service";
 import {PersistenceService} from "../persistence/persistence.service";
 import {CheckerService} from "../checker/checker.service";
 import {ScoreMethodNames} from "../../common/score-method-names";
-import {IconTransactionType} from "../../models/IconTransactionType";
-import {OmmRewards} from "../../models/OmmRewards";
+import {IconTransactionType} from "../../models/enums/IconTransactionType";
+import {UserAccumulatedOmmRewards} from "../../models/classes/UserAccumulatedOmmRewards";
 import log from "loglevel";
-import {OmmTokenBalanceDetails} from "../../models/OmmTokenBalanceDetails";
+import {OmmTokenBalanceDetails} from "../../models/classes/OmmTokenBalanceDetails";
+import {Mapper} from "../../common/mapper";
+import {UserDailyOmmReward} from "../../models/classes/UserDailyOmmReward";
 
 @Injectable({
   providedIn: 'root'
@@ -32,12 +34,12 @@ export class OmmService {
   }
 
   /**
-   * @description Get OMM rewards per user
-   * @return OmmRewards - Omm rewards per user
+   * @description Get user accumulated OMM rewards
+   * @return UserAccumulatedOmmRewards - Omm user accumulated rewards
    */
-  public async getOmmRewardsPerUser(): Promise<OmmRewards> {
+  public async getUserAccumulatedOmmRewards(): Promise<UserAccumulatedOmmRewards> {
     this.checkerService.checkUserLoggedInAndAllAddressesLoaded();
-    log.debug("Executing getOmmRewardsPerUser...");
+    log.debug("Executing getUserAccumulatedOmmRewards...");
 
     const params = {
       _user: this.persistenceService.activeWallet!.address,
@@ -48,9 +50,31 @@ export class OmmService {
 
     const res = await this.iconApiService.iconService.call(tx).execute();
 
-    log.debug("getOmmRewardsPerUser: ", res);
+    log.debug("getUserAccumulatedOmmRewards: ", res);
 
     return res;
+  }
+
+  /**
+   * @description Get user daily OMM rewards
+   * @return UserAccumulatedOmmRewards - Omm accumulated rewards for user
+   */
+  public async getUserDailyOmmRewards(): Promise<UserDailyOmmReward> {
+    this.checkerService.checkUserLoggedInAndAllAddressesLoaded();
+    log.debug("Executing getUserDailyOmmRewards...");
+
+    const params = {
+      user: this.persistenceService.activeWallet!.address,
+    };
+
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.Rewards,
+      ScoreMethodNames.GET_USER_DAILY_OMM_REWARDS, params, IconTransactionType.READ);
+
+    const res = await this.iconApiService.iconService.call(tx).execute();
+
+    log.debug("getUserDailyOmmRewards: ", res);
+
+    return Mapper.mapUserDailyOmmRewards(res);
   }
 
   /**
@@ -72,7 +96,7 @@ export class OmmService {
       const res = await this.iconApiService.iconService.call(tx).execute();
       log.debug("getOmmTokenBalanceDetails: ", res);
 
-      return res;
+      return Mapper.mapUserOmmTokenBalanceDetails(res);
     } catch (e) {
       log.error(e);
       throw e;

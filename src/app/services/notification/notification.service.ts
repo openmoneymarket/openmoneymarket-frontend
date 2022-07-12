@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core';
 import {Subject} from "rxjs";
-import {NotificationAction, NotificationType} from "../../models/NotificationAction";
+import {NotificationAction, NotificationType} from "../../models/classes/NotificationAction";
 import log from "loglevel";
 import {NOTIFICATION_TIMEOUT} from "../../common/constants";
 

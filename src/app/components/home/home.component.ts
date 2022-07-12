@@ -9,21 +9,13 @@ import {
 } from '@angular/core';
 import {BaseClass} from "../base-class";
 import {PersistenceService} from "../../services/persistence/persistence.service";
-import {SupplyService} from "../../services/supply/supply.service";
-
-import {WithdrawService} from "../../services/withdraw/withdraw.service";
-import {BorrowService} from "../../services/borrow/borrow.service";
-import {SlidersService} from "../../services/sliders/sliders.service";
-import {RepayService} from "../../services/repay/repay.service";
-import {CalculationsService} from "../../services/calculations/calculations.service";
-import {HeaderComponent} from "../header/header.component";
 import {RiskComponent} from "../risk/risk.component";
-import {Asset} from "../../models/Asset";
+import {Asset} from "../../models/classes/Asset";
 import log from "loglevel";
 import {AssetComponent} from "../asset/asset.component";
 import {StateChangeService} from "../../services/state-change/state-change.service";
-import {ActiveMarketOverview, ActiveViews} from "../../models/ActiveViews";
-import {ModalAction} from "../../models/ModalAction";
+import {ActiveMarketOverview, ActiveViews} from "../../models/enums/ActiveViews";
+import {ModalAction} from "../../models/classes/ModalAction";
 import {BridgeWidgetService} from "../../services/bridge-widget/bridge-widget.service";
 import {Utils} from "../../common/utils";
 import BigNumber from "bignumber.js";
@@ -40,8 +32,7 @@ export class HomeComponent extends BaseClass implements OnInit, AfterViewInit {
   className = "[HomeComponent]";
 
   // Child components
-  @ViewChild(HeaderComponent) private headerComponent!: HeaderComponent;
-  @ViewChild(RiskComponent) riskComponent!: RiskComponent;
+  @ViewChild("riskComponent") riskComponent!: RiskComponent;
 
   // Asset children components
   @ViewChildren('assetEl') assetComponents!: QueryList<AssetComponent>;
@@ -54,21 +45,14 @@ export class HomeComponent extends BaseClass implements OnInit, AfterViewInit {
   public availableAssets: Asset[] = [];
 
   // keep track of current active market view in this variable
-  public activeMarketView: ActiveViews = ActiveViews.ALL_MARKET;
+  public activeMarketView: ActiveViews = this.userLoggedIn() ? ActiveViews.USER_MARKET : ActiveViews.ALL_MARKET;
   public activeMarketOverview: ActiveMarketOverview = this.userLoggedIn() ? ActiveMarketOverview.YOUR_OVERVIEW :
     ActiveMarketOverview.MARKET_OVERVIEW;
 
   // OMM toggle checkbox
   public ommApyChecked = false;
 
-
   constructor(public persistenceService: PersistenceService,
-              public depositService: SupplyService,
-              public withdrawService: WithdrawService,
-              public borrowService: BorrowService,
-              public repayService: RepayService,
-              public slidersService: SlidersService,
-              public calculationService: CalculationsService,
               private cd: ChangeDetectorRef,
               private stateChangeService: StateChangeService,
               private bridgeWidgetService: BridgeWidgetService,
@@ -83,17 +67,8 @@ export class HomeComponent extends BaseClass implements OnInit, AfterViewInit {
   ngAfterViewInit(): void {
     this.loadAssetLists();
 
-    if (this.userLoggedIn()) {
-      this.onYourMarketsClick(true);
-    }
-
     // call cd after to avoid ExpressionChangedAfterItHasBeenCheckedError
     this.cd.detectChanges();
-  }
-
-
-  ommApyToggleChanged(): void {
-    // TODO overview total / your APY logic
   }
 
   // load the asset lists
@@ -133,7 +108,7 @@ export class HomeComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   private subscribeToUserDataReload(): void {
-    this.stateChangeService.userDataReload$.subscribe(() => {
+    this.stateChangeService.afterUserDataReload$.subscribe(() => {
       // reload the asset lists
       this.loadAssetLists();
     });
@@ -294,7 +269,7 @@ export class HomeComponent extends BaseClass implements OnInit, AfterViewInit {
     if (!this.shouldShowOmmPriceAndToggle() || this.persistenceService.ommPriceUSD.isLessThanOrEqualTo(new BigNumber("0"))) {
       return "";
     } else {
-      return `($${this.formatNumberToUSLocaleString(Utils.roundOffTo2Decimals(this.persistenceService.ommPriceUSD))})`;
+      return `($${this.tooUSLocaleString(Utils.roundOffTo2Decimals(this.persistenceService.ommPriceUSD))})`;
     }
   }
 

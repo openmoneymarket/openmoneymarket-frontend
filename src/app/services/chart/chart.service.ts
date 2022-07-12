@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import {PersistenceService} from "../persistence/persistence.service";
 import {Utils} from "../../common/utils";
-import {AssetTag} from "../../models/Asset";
-import {InterestHistoryData} from "../../models/InterestHistoryData";
-import {InterestHistoryRecord} from "../../models/InterestHistoryRecord";
+import {AssetTag} from "../../models/classes/Asset";
+import {InterestHistoryData} from "../../models/classes/InterestHistoryData";
+import {InterestHistoryRecord} from "../../models/classes/InterestHistoryRecord";
 import {InterestHistoryService} from "../interest-history/interest-history.service";
 
 declare var LightweightCharts: any;

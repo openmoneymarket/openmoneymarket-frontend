@@ -12,6 +12,7 @@ const routes: Routes = [
     path: '', pathMatch: 'full', redirectTo: 'home'
   },
   { path: 'home', component: HomeComponent},
+  // { path: 'home', component: HomeComponent, data: { reuseRoute: true } },
   { path: 'vote/all-proposals', component: AllProposalsComponent },
   { path: 'vote/new-proposal', component: NewProposalComponent },
   { path: 'vote/proposal/:id', component: ProposalComponent },

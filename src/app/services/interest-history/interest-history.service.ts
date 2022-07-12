@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 import {HttpClient, HttpParams} from "@angular/common/http";
-import {InterestHistoryResult} from "../../models/InterestHistoryResult";
-import {InterestHistoryRecord} from "../../models/InterestHistoryRecord";
+import {InterestHistoryResult} from "../../models/classes/InterestHistoryResult";
+import {InterestHistoryRecord} from "../../models/classes/InterestHistoryRecord";
 import {environment} from "../../../environments/environment";
 import {LocalStorageService} from "../local-storage/local-storage.service";
 import log from "loglevel";
-import {InterestHistory} from "../../models/InterestHistory";
-import {InterestHistoryPersist} from "../../models/InterestHistoryPersist";
+import {InterestHistory} from "../../models/classes/InterestHistory";
+import {InterestHistoryPersist} from "../../models/classes/InterestHistoryPersist";
 import {Utils} from "../../common/utils";
 
 @Injectable({

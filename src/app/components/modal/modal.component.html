@@ -10,7 +10,7 @@
 
 
     <!-- Message -->
-    <p class="text-center label" style="margin-top: 10px;">Voting weight: {{userVotingWeight() | roundOff2Dec | usFormat}} OMM</p>
+    <p class="text-center label" style="margin-top: 10px;">Voting weight: {{userVotingWeight() | roundOff2Dec | usFormat}} bOMM</p>
 
     <!-- Modal actions -->
     <div class="modal-actions">
@@ -79,36 +79,152 @@
   </div>
 </div>
 
-
-<!-- Modal: Confirm Omm Token stake -->
-<div class="modal" id="modal-confirm-stake" #stakeOmm>
+<!-- Modal: Manage staked OMM -->
+<div class="modal" id="modal-manage-staked-omm" #mngStkOmm>
   <div class="modal-content">
     <!-- Title -->
-    <h3 class="text-center label">Stake Omm Tokens?</h3>
-    <p class="text-center"><span class="value-omm-stake-amount">{{activeModalChange?.stakingAction?.amount | usFormat}}</span> OMM</p>
+    <h3 class="text-center label">Manage your staked OMM</h3>
+    <p class="text-bold text-center">{{activeModalChange?.manageStakedIcxAction?.amount | usFormat | toZeroIfDash}} OMM</p>
+
+    <!-- Message -->
+    <p class="label text-center text-dark" style="margin-bottom: 15px;">Omm has a new staking model. Choose what to do with your staked OMM:</p>
+
+    <!-- Withdraw options -->
+    <div class="grid graphical-options">
+      <div id="withdraw-keep" class="grid-cell text-center">
+        <input class="checkbox-tools" type="radio" name="mngStk" value="Lock up" [(ngModel)]="mngStkOption" id="tool-4" checked>
+        <label class="for-checkbox-tools" for="tool-4">
+          <img src="assets/img/icon/wallet.svg" class="svg">
+          <br>
+          <span class="text-bold">Lock up</span>
+          <br>
+          <span>Until {{timestampInMillisecondsToPrettyDate(activeModalChange?.manageStakedIcxAction?.lockingTime)}}</span>
+        </label>
+      </div>
+
+      <div id="withdraw-wait" class="grid-cell text-center">
+        <input class="checkbox-tools" type="radio" name="mngStk" value="Unstake" [(ngModel)]="mngStkOption" id="tool-5">
+        <label class="for-checkbox-tools" for="tool-5">
+          <img src="assets/img/icon/clock.svg" class="svg">
+          <br>
+          <span class="text-bold">Unstake</span>
+          <br>
+          <span>Takes 3 days</span>
+        </label>
+      </div>
+    </div>
+
+    <p class="label text-center {{mngStkOption == 'Unstake' ? 'hide' : ''}}" style="margin-top: 10px;">Lock up OMM to hold voting power and boost your earning potential. You can increase the time later.</p>
+    <p class="label text-center {{mngStkOption == 'Unstake' ? '' : 'hide'}}" style="margin-top: 10px;">Your OMM will be available in 3 days. Lock it to hold voting power and boost your earning potential.</p>
+    <p class="text-center">
+      <a href="https://blog.omm.finance/bomm/" target="_blank">Learn more about boosted OMM.</a></p>
+
+    <!-- Modal actions -->
+    <div class="modal-actions">
+<!--      <a href="#" class="button hide">Lock up OMM</a>-->
+      <a href="javascript:void(0);" class="button" (click)="onMigrateStakedIcxClick()">{{mngStkOption}}</a>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Apply boost 1 -->
+<div class="modal modal-boost" #appBoost1>
+  <div class="modal-content">
+    <!-- Title -->
+    <h3 class="text-center label">Apply bOMM boost?</h3>
+
+    <!-- Message -->
+    <p class="text-center" style="font-size: 16px;">Apply your boost to maximise your earning potential.</p>
+
+    <!-- Modal actions -->
+    <div class="modal-actions">
+      <a href="javascript:void(0);" class="cancel modal-close" (click)="onCancelClick()">Not now</a>
+      <a href="javascript:void(0);" class="button" (click)="onApplyBoostClick()">Apply boost</a>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Apply boost 2 -->
+<div class="modal modal-boost" #appBoost2>
+  <div class="modal-content">
+    <!-- Title -->
+    <h3 class="text-center label">Apply bOMM boost?</h3>
+
+    <!-- Message -->
+    <p class="text-center" style="font-size: 16px;">Claim <span class="text-bold">{{
+      this.persistenceService.getUserOmmRewardsBalance() | roundDown2Dec | usFormat}} OMM</span> to apply your boost and maximise your earning potential.</p>
+
+    <!-- Modal actions -->
+    <div class="modal-actions">
+      <a href="javascript:void(0);" class="cancel modal-close" (click)="onCancelClick()">Not now</a>
+      <a href="javascript:void(0);" class="button" (click)="onClaimOmmRewardsClick()">Claim and apply boost</a>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Boost confirm -->
+<div class="modal" id="modal-boost-confirm" #lockOmm>
+  <div class="modal-content">
+    <!-- Title -->
+    <h3 class="text-center label">Lock up Omm Tokens?</h3>
+    <p class="text-center">{{activeModalChange?.lockingOmmAction?.amount | usFormat | toZeroIfDash}} OMM</p>
 
     <!-- Before vs after -->
     <div class="grid before-after">
       <div class="grid-cell text-center border-right">
         <p class="label">Before</p>
-        <p class="text-dark">{{activeModalChange?.stakingAction?.before | usFormat}} OMM</p>
+        <p class="text-dark">{{activeModalChange?.lockingOmmAction?.before | usFormat | toZeroIfDash}} OMM</p>
       </div>
       <div class="grid-cell text-center">
         <p class="label">After</p>
-        <p class="text-dark"><span class="value-omm-stake-amount">{{activeModalChange?.stakingAction?.after | usFormat}}</span> OMM</p>
+        <p class="text-dark">{{activeModalChange?.lockingOmmAction?.after | usFormat}} OMM</p>
       </div>
     </div>
 
-    <!-- Unstaking message -->
-    <p class="label text-center">It will take 3 days to unstake them.</p>
+    <!-- Lock message -->
+    <p class="label text-center">Your OMM will be locked until<br><span class="text-bold">{{
+      timestampInMillisecondsToPrettyDate(activeModalChange?.lockingOmmAction?.lockingTime)}}</span>.</p>
+    <p class="label text-center text-red" style="margin-top: 10px;">You won't be able to withdraw it early.</p>
 
     <!-- Modal actions -->
     <div class="modal-actions">
       <a href="javascript:void(0);" class="cancel modal-close" (click)="onCancelClick()">Cancel</a>
-      <a href="javascript:void(0);" class="button" (click)="onGovernanceModalConfirmClick()">Stake</a>
+      <a href="javascript:void(0);" class="button" (click)="onConfirmLockUpOmmClick()">{{
+        lockOmmProcessing ? "Locking up OMM..." : "Lock up OMM"}}</a>
     </div>
   </div>
 </div>
+
+<div class="modal" #withdrawOmm>
+  <div class="modal-content">
+    <!-- Title -->
+    <h3 class="text-center label">Withdraw Omm Tokens?</h3>
+    <p class="text-center">{{activeModalChange?.assetAction?.amount | roundDown2Dec | usFormat}} OMM</p>
+
+    <!-- Before vs after -->
+    <div class="grid before-after">
+      <div class="grid-cell text-center border-right">
+        <p class="label">Before</p>
+        <p class="text-dark">{{activeModalChange?.assetAction?.before | roundDown2Dec | usFormat}} OMM</p>
+      </div>
+      <div class="grid-cell text-center">
+        <p class="label">After</p>
+        <p class="text-dark">{{activeModalChange?.assetAction?.after | roundDown2Dec | usFormat}} OMM</p>
+      </div>
+    </div>
+
+    <!-- Withdraw message -->
+    <p class="label text-center">You'll need to relock OMM to hold bOMM and boost your earning potential.</p>
+
+
+    <!-- Modal actions -->
+    <div class="modal-actions">
+      <a href="javascript:void(0);" class="cancel modal-close" (click)="onCancelClick()">Cancel</a>
+      <a href="javascript:void(0);" class="button" (click)="onWithdrawOmmClick()">Withdraw OMM</a>
+    </div>
+  </div>
+</div>
+
 
 <!-- Modal: Confirm Omm Token unstake -->
 <div class="modal" id="modal-confirm-unstake" #unstakeOmm>
@@ -136,24 +252,6 @@
     <div class="modal-actions">
       <a href="javascript:void(0);" class="cancel modal-close" (click)="onCancelClick()">Cancel</a>
       <a href="javascript:void(0);" class="button" (click)="onGovernanceModalConfirmClick()">Unstake</a>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Confirm Omm Token cancel unstake -->
-<div class="modal" id="modal-cancel-unstake" #cancelUnstake>
-  <div class="modal-content">
-    <!-- Title -->
-    <h3 class="text-center label">Restake Omm Tokens?</h3>
-    <p class="text-center">{{activeModalChange?.stakingAction?.amount | usFormat}} OMM</p>
-
-    <!-- Unstaking message -->
-    <p class="label text-center">This will cancel the unstaking process.</p>
-
-    <!-- Modal actions -->
-    <div class="modal-actions">
-      <a href="javascript:void(0);" class="cancel modal-close" (click)="onCancelClick()">Go back</a>
-      <a href="javascript:void(0);" class="button" (click)="onRestakeConfirmClick()">Restake</a>
     </div>
   </div>
 </div>
@@ -258,7 +356,7 @@
   <div class="modal-content">
     <h3 class="text-center label">{{getModalActionName()}} {{activeModalChange?.assetAction?.asset?.name}}?</h3>
     <p class="text-bold text-center value-borrow-difference">{{activeModalChange?.assetAction?.amount | roundDown2Dec | usFormat}} {{getAdjustedAssetTag()}}</p>
-    <div class="grid">
+    <div class="grid before-after">
       <div class="grid-cell text-center border-right">
         <p class="label">Before</p>
         <p class="text-dark value-borrowed">{{activeModalChange?.assetAction?.before | roundDown2Dec | usFormat}} {{getAdjustedAssetTag()}}</p>
@@ -360,7 +458,7 @@
       <ng-container *ngFor="let wallet of ledgerWallets; let i = index">
         <tr (click)="onSelectLedgerAddressClick(wallet)">
           <td>{{formatIconAddressToShort(wallet.address)}}</td>
-          <td class="text-right">{{formatNumberToUSLocaleString(ledgerIcxBalance(wallet), true)}} ICX</td>
+          <td class="text-right">{{tooUSLocaleString(ledgerIcxBalance(wallet), true)}} ICX</td>
         </tr>
       </ng-container>
       </tbody>

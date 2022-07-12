@@ -1,0 +1,53 @@
+<table id="your-pools" class="list liquidity" [ngClass]="isAllPoolsActive() || !userLoggedIn() || !userHasStakedOrAvailableToAnyPool() ? 'hide':''">
+  <thead>
+  <tr [ngStyle]="hideElement(shouldHideYourPoolsHeader())">
+    <th>Pool</th>
+    <th>You've supplied</th>
+    <th>LP tokens</th>
+    <th>Daily rewards</th>
+    <th>Liquidity APR</th>
+  </tr>
+  </thead>
+  <tbody>
+  <ng-container *ngFor="let poolData of getUserStakedPoolsData(); last as isLast;">
+    <ng-container *ngIf="userHasStakedToPool(poolData)">
+      <app-your-pool-row  style="display: contents"
+                          [poolData]="poolData"
+                          (poolClickUpdate)="onPoolClick($event)"
+      >
+      </app-your-pool-row>
+    </ng-container>
+
+    <!-- Spacer -->
+    <tr *ngIf="!isLast || getUserPoolsAvailableData().length > 0" class="spacer"></tr>
+  </ng-container>
+
+  <!-- User available Assets (hide if user market view is not active) -->
+  <ng-container *ngIf="getUserPoolsAvailableData().length > 0">
+
+    <!-- Available to supply -->
+    <tr class="available-to-supply">
+      <td colspan="5">
+        <div class="grid">
+          <div class="grid-cell">
+            <p class="separator-full text-center"><span>Available to stake</span></p>
+          </div>
+        </div>
+      </td>
+    </tr>
+
+    <ng-container *ngFor="let poolData of getUserPoolsAvailableData(); last as isLast;">
+      <ng-container *ngIf="userHasAvailableStakeToPool(poolData)">
+        <app-your-avail-pool-row  style="display: contents"
+                                  [poolData]="poolData"
+                                  (poolClickUpdate)="onPoolClick($event)"
+        >
+        </app-your-avail-pool-row>
+      </ng-container>
+
+      <!-- Spacer -->
+      <tr *ngIf="!isLast" class="spacer"></tr>
+    </ng-container>
+  </ng-container>
+  </tbody>
+</table>

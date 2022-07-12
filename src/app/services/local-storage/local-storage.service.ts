@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
 import {Subject} from "rxjs";
-import {ModalAction} from "../../models/ModalAction";
+import {ModalAction} from "../../models/classes/ModalAction";
 import {BridgeWallet} from "../../models/wallets/BridgeWallet";
 import {IconexWallet} from "../../models/wallets/IconexWallet";
 import {LedgerWallet} from "../../models/wallets/LedgerWallet";
-import {Proposal} from "../../models/Proposal";
+import {Proposal} from "../../models/classes/Proposal";
 import log from "loglevel";
 import BigNumber from "bignumber.js";
 

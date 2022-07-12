@@ -1,38 +1,37 @@
 import {AfterViewInit, ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
 import {BaseClass} from "../base-class";
 import {PersistenceService} from "../../services/persistence/persistence.service";
-import {ModalType} from "../../models/ModalType";
+import {ModalType} from "../../models/enums/ModalType";
 import {ModalService} from "../../services/modal/modal.service";
 import log from "loglevel";
 import {StateChangeService} from "../../services/state-change/state-change.service";
-import {OmmTokenBalanceDetails} from "../../models/OmmTokenBalanceDetails";
-import {VoteService} from "../../services/vote/vote.service";
-import {Prep, PrepList} from "../../models/Preps";
+import {Prep, PrepList} from "../../models/classes/Preps";
 import {CalculationsService} from "../../services/calculations/calculations.service";
-import {YourPrepVote} from "../../models/YourPrepVote";
+import {YourPrepVote} from "../../models/classes/YourPrepVote";
 import {NotificationService} from "../../services/notification/notification.service";
-import {StakingAction} from "../../models/StakingAction";
-import {ModalAction, ModalStatus} from "../../models/ModalAction";
-import {SlidersService} from "../../services/sliders/sliders.service";
+import {ModalAction, ModalStatus} from "../../models/classes/ModalAction";
 import {Utils} from "../../common/utils";
-import {DataLoaderService} from "../../services/data-loader/data-loader.service";
-import {VoteAction} from "../../models/VoteAction";
-import {AssetTag} from "../../models/Asset";
-import {contributorsMap, defaultPrepLogoUrl} from "../../common/constants";
-import {normalFormat} from "../../common/formats";
+import {VoteAction} from "../../models/classes/VoteAction";
+import {AssetTag} from "../../models/classes/Asset";
+import {
+  contributorsMap,
+  defaultPrepLogoUrl, Times
+} from "../../common/constants";
 import BigNumber from "bignumber.js";
-import {Proposal} from "../../models/Proposal";
-import {ReloaderService} from "../../services/reloader/reloader.service";
-import {Router} from "@angular/router";
+import {Proposal} from "../../models/classes/Proposal";
+import {LockDate} from "../../models/enums/LockDate";
+import {OmmLockingComponent} from "../omm-locking/omm-locking.component";
+import {OmmLockingCmpType} from "../../models/enums/OmmLockingComponent";
+import {ManageStakedIcxAction} from "../../models/classes/ManageStakedIcxAction";
 
-declare var noUiSlider: any;
 
 @Component({
   selector: 'app-vote',
   templateUrl: './vote.component.html',
-  styleUrls: ['./vote.component.css']
 })
 export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
+
+  latestProposals: Proposal[] = [];
 
   prepList?: PrepList = this.persistenceService.prepList;
   yourVotesPrepList: YourPrepVote[] = this.persistenceService.yourVotesPrepList;
@@ -41,58 +40,95 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
     new BigNumber("0"), new BigNumber("0"));
   searchInput = "";
 
-  @ViewChild("stkSlider")set sliderStakeSetter(sliderStake: ElementRef) {this.sliderStake = sliderStake.nativeElement; }
-  private sliderStake!: any;
+  private yourVotingPowerEl: any; @ViewChild("yourVotPow")set b(b: ElementRef) {this.yourVotingPowerEl = b.nativeElement; }
+  private votingPowerPerIcxEl: any; @ViewChild("votPwrPerIcx")set c(c: ElementRef) {this.votingPowerPerIcxEl = c.nativeElement; }
 
-  @ViewChild("stakeInput")set stakeInputSetter(stakeInput: ElementRef) {this.inputStakeOmm = stakeInput.nativeElement; }
-  private inputStakeOmm!: any;
-
-  userOmmTokenBalanceDetails?: OmmTokenBalanceDetails;
+  @ViewChild(OmmLockingComponent) ommLockingComponent!: OmmLockingComponent;
 
   // current state variables
   yourVotesEditMode = false;
   voteOverviewEditMode = false;
 
+  yourVotingPower = new BigNumber(0);
+
+  votingPower = new BigNumber(0);
+  ommVotingPower = new BigNumber(0);
+
   constructor(public persistenceService: PersistenceService,
               private modalService: ModalService,
               private stateChangeService: StateChangeService,
-              private voteService: VoteService,
               public calculationsService: CalculationsService,
               private notificationService: NotificationService,
-              private sliderService: SlidersService,
-              private dataLoaderService: DataLoaderService,
-              private cd: ChangeDetectorRef,
-              public reloaderService: ReloaderService,
-              private router: Router) {
+              private cdRef: ChangeDetectorRef,
+              private calculationService: CalculationsService) {
     super(persistenceService);
   }
 
   ngOnInit(): void {
+    this.initCoreStaticValues();
     this.initSubscriptions();
+    this.initUserStaticValues();
+
+    // pop up manage staked omm
+    this.popupStakedMigrationModal();
   }
 
   ngAfterViewInit(): void {
-    this.initStakeSlider();
-    this.resetStateValues();
-
-    // call cd after to avoid ExpressionChangedAfterItHasBeenCheckedError
-    this.cd.detectChanges();
+    this.cdRef.detectChanges();
   }
 
   private initSubscriptions(): void {
-    this.subscribeToPrepListChange();
-    this.subscribeToOmmTokenBalanceChange();
+    this.subscribeToCoreDataReload();
     this.subscribeToUserModalActionChange();
     this.subscribeToModalActionResult();
-    this.subscribeToYourVotesPrepChange();
+    this.subscribeToAfterUserDataReload();
+    this.subscribeToUserLogin();
   }
 
-  // values that should be reset on re-init
-  resetStateValues(): void {
+  private subscribeToUserLogin(): void {
+    this.stateChangeService.loginChange.subscribe(wallet => {
+      if (!wallet) {
+        this.resetVotingPowerPerIcx();
+        this.resetYourVotingPower();
+      } else {
+        // pop up manage staked omm
+        this.popupStakedMigrationModal();
+      }
+    });
+  }
+
+  private subscribeToAfterUserDataReload(): void {
+    this.stateChangeService.afterUserDataReload$.subscribe(() => {
+      this.initUserStaticValues();
+      this.cdRef.detectChanges();
+    });
+  }
+
+  public subscribeToCoreDataReload(): void {
+    this.stateChangeService.afterCoreDataReload$.subscribe(() => {
+      this.initCoreStaticValues();
+      this.cdRef.detectChanges();
+    });
+  }
+
+  initCoreStaticValues(): void {
+    this.latestProposals = this.persistenceService.proposalList.slice(0, 3);
     this.yourVotesEditMode = false;
     this.voteOverviewEditMode = false;
+    this.votingPower = this.calculationsService.votingPower();
+    this.setVotingPowerPerIcx(this.votingPower);
+    this.ommVotingPower = this.calculationsService.ommVotingPower();
+    this.prepList = this.persistenceService.prepList;
+    this.onSearchInputChange("");
+  }
 
-    this.yourVotesPrepList = [...this.persistenceService.yourVotesPrepList];
+  initUserStaticValues(): void {
+    if (this.userLoggedIn()) {
+      this.yourVotingPower = this.calculationsService.usersVotingPower();
+      this.setYourVotingPower(this.yourVotingPower);
+      // reset the your prep votes list
+      this.resetYourVotePreps();
+    }
   }
 
   private subscribeToModalActionResult(): void {
@@ -102,6 +138,7 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
         // if it failed
         if (res.status === ModalStatus.FAILED) {
           this.yourVotesPrepList = [...this.persistenceService.yourVotesPrepList];
+          this.cdRef.detectChanges();
         } else if (res.status === ModalStatus.CANCELLED) {
           this.yourVotesEditMode = true;
         }
@@ -109,127 +146,48 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
     });
   }
 
-  private subscribeToYourVotesPrepChange(): void {
-    this.stateChangeService.yourVotesPrepChange.subscribe(res => {
-      this.yourVotesPrepList = [...res];
-    });
-  }
-
-  private subscribeToPrepListChange(): void {
-    // top 100 prep list has changed
-    this.stateChangeService.prepListChange.subscribe((prepList: PrepList) => {
-      this.prepList = prepList;
-      this.onSearchInputChange("");
-    });
-  }
-
   private subscribeToUserModalActionChange(): void {
     // User confirmed the modal action
     this.stateChangeService.userModalActionChange.subscribe((modalAction?: ModalAction) => {
+      this.ommLockingComponent.onLockAdjustCancelClick();
+
       // set edit mode to false, disable slider and reset search
       this.yourVotesEditMode = false;
       this.voteOverviewEditMode = false;
-      this.sliderStake.setAttribute("disabled", "");
       this.onSearchInputChange("");
     });
   }
 
-  private subscribeToOmmTokenBalanceChange(): void {
-    this.stateChangeService.userOmmTokenBalanceDetailsChange.subscribe((res: OmmTokenBalanceDetails) => {
-      log.debug(`subscribeToOmmTokenBalanceChange res:`, res);
-      this.userOmmTokenBalanceDetails = res.getClone();
-      log.debug(`this.userOmmTokenBalanceDetails:`, this.userOmmTokenBalanceDetails);
-
-      // sliders max is sum of staked + available balance
-      const sliderMax = Utils.add(this.persistenceService.getUsersStakedOmmBalance(),
-        this.persistenceService.getUsersAvailableOmmBalance());
-
-      this.sliderStake.noUiSlider.updateOptions({
-        start: [this.userOmmTokenBalanceDetails.stakedBalance.dp(0).toNumber()],
-        range: { min: 0, max: sliderMax.isGreaterThan(Utils.ZERO) ? sliderMax.dp(0).toNumber() : 1 }
-      });
-
-      // assign staked balance to the current slider value
-      log.debug(`subscribeToOmmTokenBalanceChange setting this.sliderStake to value :`, this.userOmmTokenBalanceDetails.stakedBalance);
-      this.sliderStake.noUiSlider.set(this.userOmmTokenBalanceDetails.stakedBalance.dp(0).toNumber());
-    });
+  popupStakedMigrationModal(): void {
+    // pop up manage staked omm
+    if (this.userLoggedIn() && this.persistenceService.getUserStakedOmmBalance().gt(0)) {
+      // default migration locking period is 1 week
+      const lockTime = this.calculationService.recalculateLockPeriodEnd(Utils.timestampNowMilliseconds().plus(Times.WEEK_IN_MILLISECONDS));
+      const amount = this.persistenceService.getUserStakedOmmBalance();
+      this.modalService.showNewModal(ModalType.MANAGE_STAKED_OMM, undefined, undefined, undefined,
+        undefined, undefined, new ManageStakedIcxAction(amount, lockTime));
+    }
   }
 
-  initStakeSlider(): void {
-    this.userOmmTokenBalanceDetails = this.persistenceService.userOmmTokenBalanceDetails?.getClone();
-    const currentUserOmmStakedBalance = this.persistenceService.getUsersStakedOmmBalance();
-    const userOmmAvailableBalance = this.persistenceService.getUsersAvailableOmmBalance();
-    const max = Utils.add(currentUserOmmStakedBalance, userOmmAvailableBalance).dp(0);
+  handleLockSliderValueUpdate(value: number): void {
+    const bigNumValue = new BigNumber(value);
 
-    // create Stake slider
-    if (this.sliderStake) {
-      noUiSlider.create(this.sliderStake, {
-        start: 0,
-        padding: 0,
-        connect: 'lower',
-        range: {
-          min: [0],
-          max: [max.isZero() ? 1 : max.toNumber()]
-        },
-        step: 1,
-      });
-    }
-
-    // slider slider value if user Omm token balances are already loaded
-    if (this.userOmmTokenBalanceDetails) {
-      this.sliderStake.noUiSlider.set(this.userOmmTokenBalanceDetails.stakedBalance.dp(0).toNumber());
-    }
-
-    // On stake slider update
-    this.sliderStake.noUiSlider.on('update', (values: any, handle: any) => {
-      const value = new BigNumber(values[handle]);
-
-      // Update Omm stake input text box
-      this.inputStakeOmm.value = normalFormat.to(parseFloat(values[handle]));
-
-      if (this.userOmmTokenBalanceDetails) {
-        this.userOmmTokenBalanceDetails.stakedBalance = value;
+    // update dynamic values only if user current and dynamic locked OMM amounts are different
+    if (this.userLoggedIn() && !this.userLockedOmmBalance().eq(bigNumValue.dp(0)))  {
+      // Update User daily Omm rewards
+      if (this.yourVotingPower) {
+        this.updateYourVotingPower(bigNumValue);
       }
-    });
-  }
 
-  // Stake input updates the slider
-  onInputStakeOmmChange(): void {
-    log.debug("onInputStakeOmmChange: " + this.inputStakeOmm.value);
-    if (+normalFormat.from(this.inputStakeOmm.value)) {
-      this.sliderStake.noUiSlider.set(normalFormat.from(this.inputStakeOmm.value));
-    } else {
-      this.sliderStake.noUiSlider.set(normalFormat.from("0"));
+      if (this.votingPowerPerIcxEl) {
+        this.updateVotingPowerPerIcx(bigNumValue);
+      }
     }
   }
 
-  onSignInClick(): void {
-    this.modalService.showNewModal(ModalType.SIGN_IN);
-  }
-
-  // On OMM un-staking cancel click
-  onCancelUnstakingClick(): void {
-    const stakingAction = new StakingAction(Utils.ZERO, Utils.ZERO, this.persistenceService.getUserUnstakingOmmBalance0Rounded());
-    this.modalService.showNewModal(ModalType.CANCEL_UNSTAKE_OMM_TOKENS, undefined, stakingAction);
-  }
-
-  // On "Stake" click
-  onStakeAdjustClick(): void {
-    // Add "adjust" class
-    this.voteOverviewEditMode = true;
-
-    // Set your P-Rep sliders to initial values
-    this.sliderStake.removeAttribute("disabled");
-  }
-
-  // On "Cancel Stake" click
-  onStakeAdjustCancelClick(): void {
-    // Remove "adjust" class
-    this.voteOverviewEditMode = false;
-
-    // Set your stake slider to the initial value
-    this.sliderStake.setAttribute("disabled", "");
-    this.sliderStake.noUiSlider.set(this.persistenceService.getUsersStakedOmmBalance().toNumber());
+  handleLockAdjustCancelClicked(): void {
+    this.updateYourVotingPower(this.userLockedOmmBalance());
+    this.updateVotingPowerPerIcx(this.userLockedOmmBalance());
   }
 
   // On "Adjust votes" click
@@ -243,34 +201,6 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
 
     // reset the your prep votes list
     this.resetYourVotePreps();
-  }
-
-  onConfirmStakeClick(): void {
-    log.debug(`onConfirmStakeClick Omm stake amount = ${this.userOmmTokenBalanceDetails?.stakedBalance}`);
-    const before = this.persistenceService.getUsersStakedOmmBalance();
-    log.debug("before = ", before);
-    const after = (this.userOmmTokenBalanceDetails?.stakedBalance ?? new BigNumber("0")).dp(0);
-    log.debug("after = ", after);
-    const diff = Utils.subtract(after, before);
-    log.debug("Diff = ", diff);
-
-    // if before and after equal show notification
-    if (before.isEqualTo(after)) {
-      this.notificationService.showNewNotification("No change in staked value.");
-      return;
-    }
-
-    const voteAction = new StakingAction(before, after, diff.abs());
-
-    if (diff.isGreaterThan(Utils.ZERO)) {
-      if (this.persistenceService.minOmmStakeAmount > diff) {
-        this.notificationService.showNewNotification(`Stake amount must be greater than ${this.persistenceService.minOmmStakeAmount}`);
-      } else {
-        this.modalService.showNewModal(ModalType.STAKE_OMM_TOKENS, undefined, voteAction);
-      }
-    } else {
-      this.modalService.showNewModal(ModalType.UNSTAKE_OMM_TOKENS, undefined, voteAction);
-    }
   }
 
   onConfirmSavePrepClick(): void {
@@ -332,42 +262,16 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
     this.fillYourVotePercentages(this.yourVotesPrepList);
   }
 
-  userHasOmmTokens(): boolean {
-    return (this.persistenceService.userOmmTokenBalanceDetails?.totalBalance ?? new BigNumber("0")).isGreaterThan(Utils.ZERO);
+  userHasLockedOmm(): boolean {
+    return this.persistenceService.getUsersLockedOmmBalance().isGreaterThan(Utils.ZERO);
   }
 
-  userHasMoreThanOneOmmToken(): boolean {
-    return (this.persistenceService.userOmmTokenBalanceDetails?.totalBalance ?? new BigNumber("0")).isGreaterThan(new BigNumber("1"));
+  userLockedOmmBalance(): BigNumber {
+    return this.persistenceService.getUsersLockedOmmBalance();
   }
 
-  userHasStaked(): boolean {
-    return this.persistenceService.getUsersStakedOmmBalance().isGreaterThan(Utils.ZERO);
-  }
-
-  userVotingPower(): BigNumber {
-    if (this.userLoggedIn()) {
-      return this.votingPower().multipliedBy(this.persistenceService.getUsersStakedOmmBalance());
-    } else {
-      return new BigNumber("0");
-    }
-  }
-
-  votingPower(): BigNumber {
-    return this.calculationsService.votingPower();
-  }
-
-  ommVotingPower(): BigNumber {
-    const totalLiquidityIcx = this.persistenceService.getAssetReserveData(AssetTag.ICX)?.totalLiquidity ?? new BigNumber("0");
-    const totalBorrowedIcx = this.persistenceService.getAssetReserveData(AssetTag.ICX)?.totalBorrows ?? new BigNumber("0");
-    return this.convertSICXToICX(totalLiquidityIcx.minus(totalBorrowedIcx));
-  }
-
-  isMaxStaked(): boolean {
-    return new BigNumber(this.sliderStake?.noUiSlider?.options.range.max).isEqualTo(this.userOmmTokenBalanceDetails?.stakedBalance ?? -1);
-  }
-
-  isUnstaking(): boolean {
-    return this.persistenceService.getUserUnstakingOmmBalance0Rounded().isGreaterThan(Utils.ZERO);
+  totalbOmm(): BigNumber {
+    return this.persistenceService.bOmmTotalSupply.dp(2);
   }
 
   userHasVotedForPrep(): boolean {
@@ -392,15 +296,12 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   onSearchInputChange(searchInput: string): void {
-    log.debug("this.searchInput = ", searchInput);
     this.searchInput = searchInput;
 
     if (this.searchInput.trim() === "") {
-      log.debug("this.searchInput.trim() === ");
       this.searchedPrepList = this.prepList ?? new PrepList(new BigNumber("0"), new BigNumber("0"), [], new BigNumber("0"),
         new BigNumber("0"));
 
-      log.debug(`searchedPrepList:`);
       log.debug(this.searchedPrepList);
     } else {
       if (this.prepList) {
@@ -432,24 +333,13 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   getDelegationAmount(yourPrepVote: YourPrepVote): BigNumber {
-    return (this.persistenceService.getUsersStakedOmmBalance().multipliedBy((yourPrepVote.percentage
-      .dividedBy(new BigNumber("100"))).multipliedBy(this.votingPower()))).dp(2);
+    return (this.persistenceService.getUsersLockedOmmBalance().multipliedBy((yourPrepVote.percentage
+      .dividedBy(new BigNumber("100"))).multipliedBy(this.votingPower))).dp(2);
   }
 
   getLatestProposals(): Proposal[] {
     return this.persistenceService.proposalList.slice(0, 3);
   }
-
-  // TODO: in case we want infinity scrolling for preps list
-  // @HostListener("window:scroll", [])
-  // onScroll(): void {
-  //   if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
-  //     // Load Your Data Here
-  //     log.debug("Load more Preps");
-  //     const currentPrepListLength = this.persistenceService.prepList?.preps.length ?? 1;
-  //     this.loadPrepList(currentPrepListLength, currentPrepListLength + 21);
-  //   }
-  // }
 
   getPrepsUSDReward(prep: Prep, index: number): BigNumber {
     const prepsIcxReward = this.getPrepsIcxReward(prep, index);
@@ -473,14 +363,12 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
     return prep.power.dividedBy(this.searchedPrepList.totalPower);
   }
 
-  getYourStakeMax(): BigNumber {
-    // sliders max is sum of staked + available balance
-    return Utils.add(this.persistenceService.getUsersStakedOmmBalance(),
-        this.persistenceService.getUsersAvailableOmmBalance());
-  }
-
   getLogoUrl(address: string): string {
     return this.persistenceService.prepList?.prepAddressToLogoUrlMap.get(address) ?? defaultPrepLogoUrl;
+  }
+
+  getOmmLckCmpType(): OmmLockingCmpType {
+    return OmmLockingCmpType.VOTE;
   }
 
   prepIsInYourVotes(prep: Prep): boolean {
@@ -496,7 +384,46 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
     $event.target.src = defaultPrepLogoUrl;
   }
 
-  onProposalClick(proposal: Proposal): void {
-    this.router.navigate(["vote/proposal", proposal.id.toString()]);
+  /**
+   * BOOSTED OMM
+   */
+
+  onLockUntilDateClick(): void {
+    this.updateYourVotingPower(this.ommLockingComponent.dynamicLockedOmmAmount);
+    this.updateVotingPowerPerIcx(this.ommLockingComponent.dynamicLockedOmmAmount);
   }
+
+  updateYourVotingPower(newLockedOmmAmount: BigNumber, date?: LockDate): void {
+    const newUserbOmmBalance = this.calculationService.calculateNewbOmmBalance(newLockedOmmAmount,
+      this.ommLockingComponent.selectedLockTimeInMillisec);
+    const yourVotingPower = this.calculationsService.usersVotingPower(newUserbOmmBalance);
+
+    this.setYourVotingPower(yourVotingPower);
+  }
+
+  setYourVotingPower(yourVotingPower: BigNumber): void {
+    this.setText(this.yourVotingPowerEl, this.tooUSLocaleString(yourVotingPower.dp(2))
+      + (yourVotingPower.isGreaterThan(Utils.ZERO) ? " ICX " : ""));
+  }
+
+  resetYourVotingPower(): void {
+    this.setText(this.yourVotingPowerEl, "-");
+  }
+
+  updateVotingPowerPerIcx(newLockedOmmAmount: BigNumber, date?: LockDate): void {
+    const newUserbOmmBalance = this.calculationService.calculateNewbOmmBalance(newLockedOmmAmount,
+      this.ommLockingComponent.selectedLockTimeInMillisec);
+    const votingPower = this.calculationsService.votingPower(newUserbOmmBalance);
+    this.setVotingPowerPerIcx(votingPower);
+  }
+
+  resetVotingPowerPerIcx(): void {
+    this.setVotingPowerPerIcx(this.votingPower);
+  }
+
+  setVotingPowerPerIcx(votingPower: BigNumber): void {
+    const text = `1 bOMM = ${this.tooUSLocaleString(votingPower.dp(2))} ICX`;
+    this.setText(this.votingPowerPerIcxEl, text);
+  }
+
 }

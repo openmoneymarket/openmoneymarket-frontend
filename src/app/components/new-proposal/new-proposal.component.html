@@ -53,7 +53,7 @@
             <!-- Min OMM stake required for creating a proposal -->
             <ng-container *ngIf="!userHasEnoughOmmStaked()">
               <br>
-              <p class="label text-red text-center">Stake at least {{persistenceService.getMinOmmStakedRequiredForProposal() | roundOff2Dec | usFormat}} OMM if you want to propose a change.</p>
+              <p class="label text-red text-center">You need at least {{persistenceService.getMinOmmStakedRequiredForProposal() | roundOff2Dec | usFormat}} bOMM to propose a change.</p>
             </ng-container>
           </div>
         </div>

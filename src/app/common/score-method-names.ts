@@ -16,7 +16,7 @@ export class ScoreMethodNames {
    * IRC2 interface methods
    */
   public static TRANSFER = "transfer";
-  public static BALANCE = "balanceOf";
+  public static BALANCE_OF = "balanceOf";
   public static AVAILABLE_BALANCE_OF = "availableBalanceOf";
 
 
@@ -43,9 +43,10 @@ export class ScoreMethodNames {
   */
   public static CLAIM_OMM_REWARDS = "claimRewards";
   public static GET_OMM_REWARDS_PER_USER = "getRewards";
+  public static GET_USER_DAILY_OMM_REWARDS = "getUserDailyReward";
   public static GET_OMM_TOKEN_BALANCE_DETAILS = "details_balanceOf";
   public static GET_DIST_PERCENTAGE_ALL_POOLS = "distPercentageOfAllLP";
-  public static GET_ALL_ASSET_DIST_PERCENTAGE = "allAssetDistPercentage";
+  public static GET_ALL_ASSET_DIST_PERCENTAGE = "getAllAssetDistributionPercentage";
   public static GET_DAILY_REWARDS_RESERVES_POOLS = "getDailyRewards";
   public static GET_DAY = "getDay";
 
@@ -60,6 +61,14 @@ export class ScoreMethodNames {
   public static TEST_MINT = "testMint";
   public static TOTAL_STAKED_OMM_AT = "totalStakedBalanceOfAt";
   public static TOTAL_SUPPLY = "totalSupply";
+  public static MIGRATE_STAKED_OMM = "migrateStakedOMM";
+
+  /**
+   * bOMM SCORE
+   */
+  public static GET_LOCKED_OMM = "getLocked";
+  public static INCREASE_UNLOCK_TIME = "increaseUnlockTime";
+  public static WITHDRAW_LOCKED_OMM = "withdraw";
 
   /**
    * Balanced DEX SCORE
@@ -87,7 +96,7 @@ export class ScoreMethodNames {
   public static CAST_VOTE = "castVote";
   public static CANCEL_VOTE_ON_PROPOSAL = "cancelVote";
   public static MY_VOTING_WEIGHT = "myVotingWeight";
-  public static GET_OMM_VOTE_DEFINITION_CRITERION = "getOmmVoteDefinitionCriterion";
+  public static GET_BOOSTED_OMM_VOTE_DEFINITION_CRITERION = "getBoostedOmmVoteDefinitionCriterion";
   public static GET_VOTE_DURATION = "getVoteDuration";
 
   /**

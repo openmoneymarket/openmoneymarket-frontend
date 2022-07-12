@@ -1,14 +1,14 @@
-import {AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnInit, SimpleChanges, ViewChild} from '@angular/core';
-import {UserPoolData} from "../../models/UserPoolData";
+import {AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild} from '@angular/core';
+import {UserPoolData} from "../../models/classes/UserPoolData";
 import {BaseClass} from "../base-class";
 import {PersistenceService} from "../../services/persistence/persistence.service";
-import {ModalType} from "../../models/ModalType";
+import {ModalType} from "../../models/enums/ModalType";
 import {ModalService} from "../../services/modal/modal.service";
-import {StakingAction} from "../../models/StakingAction";
+import {StakingAction} from "../../models/classes/StakingAction";
 import {StateChangeService} from "../../services/state-change/state-change.service";
 import {Utils} from "../../common/utils";
 import {NotificationService} from "../../services/notification/notification.service";
-import {ModalAction} from "../../models/ModalAction";
+import {ModalAction} from "../../models/classes/ModalAction";
 import log from "loglevel";
 import BigNumber from "bignumber.js";
 
@@ -16,8 +16,7 @@ declare var noUiSlider: any;
 
 @Component({
   selector: 'app-pool-stake-slider',
-  templateUrl: './pool-stake-slider.component.html',
-  styleUrls: ['./pool-stake-slider.component.css']
+  templateUrl: './pool-stake-slider.component.html'
 })
 export class PoolStakeSliderComponent extends BaseClass implements OnInit, AfterViewInit {
 
@@ -30,9 +29,14 @@ export class PoolStakeSliderComponent extends BaseClass implements OnInit, After
   inputStakedEl: any;
   @ViewChild("inputEl")set d(d: ElementRef) {this.inputStakedEl = d.nativeElement; }
 
+  @Output() sliderValueUpdate = new EventEmitter<{value: BigNumber, poolData: UserPoolData | undefined}>();
+  @Output() cancelClicked = new EventEmitter<void>();
+
   poolData: UserPoolData | undefined;
 
   poolId!: BigNumber;
+
+  adjustActive = false;
 
   @Input() set poolIdSet(id: BigNumber) {
     this.poolId = id;
@@ -52,8 +56,6 @@ export class PoolStakeSliderComponent extends BaseClass implements OnInit, After
   }
 
   ngAfterViewInit(): void {
-    log.debug("Pool " + this.poolId + "ngAfterViewInit userPoolsDataMap: ", this.persistenceService.userPoolsDataMap);
-
     this.poolData = this.persistenceService.userPoolsDataMap.get(this.poolId.toString());
     this.initSlider();
     this.setCurrentStaked();
@@ -105,7 +107,7 @@ export class PoolStakeSliderComponent extends BaseClass implements OnInit, After
 
   subscribeToUserPoolsChange(): void {
     this.stateChangeService.userPoolsDataChange$.subscribe(() => {
-      log.debug("Pool " + this.poolData?.getPrettyName() + "userPoolsDataChange$ userPoolsDataMap: ",
+      log.debug("Pool " + this.poolData?.prettyName + "userPoolsDataChange$ userPoolsDataMap: ",
         this.persistenceService.userPoolsDataMap);
       this.poolData = this.persistenceService.userPoolsDataMap.get(this.poolId.toString());
       this.initSlider();
@@ -145,7 +147,7 @@ export class PoolStakeSliderComponent extends BaseClass implements OnInit, After
 
     // if value is greater than slider max, update the sliders max and set the value
     if (res.isGreaterThan(this.sliderMaxValue())) {
-      this.sliderEl.noUiSlider.updateOptions({range: { min: 0, max: res.dp(2).toNumber() }});
+      this.sliderEl.noUiSlider?.updateOptions({range: { min: 0, max: res.dp(2).toNumber() }});
     }
 
     this.sliderEl.noUiSlider.set(res.dp(2).toNumber());
@@ -169,23 +171,34 @@ export class PoolStakeSliderComponent extends BaseClass implements OnInit, After
 
     // On stake slider update
     this.sliderEl?.noUiSlider.on('update', (values: any, handle: any) => {
-      this.inputStakedEl.value = (new BigNumber(values[handle])).dp(2).toNumber();
+      const bigNumValue = (new BigNumber(values[handle])).dp(2);
+      this.inputStakedEl.value = bigNumValue.toNumber();
+      this.sliderValueUpdate.emit({
+        value: bigNumValue,
+        poolData: this.poolData
+      });
     });
   }
 
   onAdjustClick(): void {
+    this.adjustActive = true;
     this.sliderEl?.removeAttribute("disabled");
     this.addClass(this.restStateEl, "hide");
     this.removeClass(this.adjustStateEl, "hide");
   }
 
   onCancelClick(): void {
+    this.adjustActive = false;
+
     // reset values
     this.setCurrentStaked();
 
     this.sliderEl?.setAttribute("disabled", "");
     this.addClass(this.adjustStateEl, "hide");
     this.removeClass(this.restStateEl, "hide");
+
+    // emit cancel clicked event to parent components
+    this.cancelClicked.emit();
   }
 
   sliderMaxValue(): BigNumber {
@@ -194,12 +207,8 @@ export class PoolStakeSliderComponent extends BaseClass implements OnInit, After
 
   getStakeMax(): BigNumber {
     // sliders max is sum of staked + available balance
-    const res = Utils.add(this.persistenceService.getUserPoolStakedBalance(this.poolId),
+    return Utils.add(this.persistenceService.getUserPoolStakedBalance(this.poolId),
       this.persistenceService.getUserPoolStakedAvailableBalance(this.poolId)).dp(2);
-
-    log.debug(`[pool=${this.poolId}] getStakeMax: `, res);
-
-    return res;
   }
 
   getInputStakedValue(): BigNumber {

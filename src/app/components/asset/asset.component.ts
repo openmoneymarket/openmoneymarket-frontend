@@ -4,46 +4,49 @@ import {
   Component,
   ElementRef,
   EventEmitter,
-  Input,
+  Input, OnChanges,
+  OnDestroy,
   OnInit,
-  Output,
+  Output, SimpleChanges,
   ViewChild
 } from '@angular/core';
 import {SlidersService} from "../../services/sliders/sliders.service";
-import {assetPrefixMinusFormat, assetPrefixPlusFormat, ommPrefixPlusFormat, percentageFormat, usLocale} from "../../common/formats";
+import {
+  assetFormat,
+  ommPrefixFormat,
+  percentageFormat,
+  usLocale
+} from "../../common/formats";
 import {CalculationsService} from "../../services/calculations/calculations.service";
-import {Asset, AssetTag, assetToCollateralAssetTag, CollateralAssetTag} from "../../models/Asset";
+import {Asset, AssetTag, assetToCollateralAssetTag, CollateralAssetTag} from "../../models/classes/Asset";
 import log from "loglevel";
 import {StateChangeService} from "../../services/state-change/state-change.service";
 import {PersistenceService} from "../../services/persistence/persistence.service";
-import {UserReserveData} from "../../models/UserReserveData";
+import {UserReserveData} from "../../models/classes/UserReserveData";
 import {ModalService} from "../../services/modal/modal.service";
-import {ModalType} from "../../models/ModalType";
+import {ModalType} from "../../models/enums/ModalType";
 import {BaseClass} from "../base-class";
-import {AssetAction} from "../../models/AssetAction";
+import {AssetAction} from "../../models/classes/AssetAction";
 import {NotificationService} from "../../services/notification/notification.service";
-import {UserAction} from "../../models/UserAction";
+import {UserAction} from "../../models/enums/UserAction";
 import {Utils} from "../../common/utils";
-import {ActiveViews} from "../../models/ActiveViews";
+import {ActiveViews} from "../../models/enums/ActiveViews";
 import {DEFAULT_SLIDER_MAX, ICX_SUPPLY_BUFFER} from "../../common/constants";
 import BigNumber from "bignumber.js";
 import {ChartService} from "../../services/chart/chart.service";
+import { Subscription } from 'rxjs';
 
 declare var $: any;
 
 @Component({
   selector: 'app-asset',
-  templateUrl: './asset.component.html'
+  templateUrl: './asset.component.html',
 })
-export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
+export class AssetComponent extends BaseClass implements OnInit, OnDestroy, AfterViewInit, OnChanges {
 
   @Input() asset!: Asset;
-  // tslint:disable-next-line:variable-name
-  _ommApyChecked = false;
-  @Input() set ommApyChecked(ommApyChecked: boolean) {
-    this._ommApyChecked = ommApyChecked;
-    this.ommApyCheckedChange();
-  }
+  assetIsIcx = this.asset?.tag === AssetTag.ICX;
+  @Input() ommApyChecked!: boolean;
   @Input() riskSlider!: any;
   @Input() index!: number;
   @Input() activeMarketView!: ActiveViews;
@@ -118,6 +121,32 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   supplyChart: any;
   borrowChart: any;
 
+  allMarketsSupplyApy = Utils.ZERO;
+  allMarketsBorrowApy = Utils.ZERO;
+  allMarketsSupplyApyPlusOmmApy = Utils.ZERO;
+  allMarketsBorrowApyPlusOmmApy = Utils.ZERO;
+
+  userMarketsSupplyApy = Utils.ZERO;
+  userMarketsBorrowApy = Utils.ZERO;
+  userMarketsSupplyApyPlusOmmApy = Utils.ZERO;
+  userMarketsBorrowApyPlusOmmApy = Utils.ZERO;
+  userBorrowedAssetBalanceUSD = Utils.ZERO;
+  userBorrowedAssetBalance = Utils.ZERO;
+
+  afterCoreDataReloadSub?: Subscription;
+  afterUserDataReloadSub?: Subscription;
+  collapseMarketAssetsSub?: Subscription;
+  collapseOtherAssetsTableSub?: Subscription;
+  removeAdjustClassSub?: Subscription;
+  showDefaultActionsSub?: Subscription;
+  disableAssetsInputsSub?: Subscription;
+  userTotalRiskChangeSub?: Subscription;
+
+  dynamicSupplyApy = Utils.ZERO;
+  dynamicSupplyApyActive = false;
+  dynamicBorrowApy = Utils.ZERO;
+  dynamicBorrowApyActive = false;
+
   constructor(private slidersService: SlidersService,
               public calculationService: CalculationsService,
               private stateChangeService: StateChangeService,
@@ -129,8 +158,34 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     super(persistenceService);
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.asset) {
+      this.assetIsIcx = this.asset.tag === AssetTag.ICX;
+    }
+  }
+
   ngOnInit(): void {
     this.registerSubscriptions();
+
+    this.initCoreValues();
+    this.initUserValues();
+  }
+
+  ngOnDestroy(): void {
+    this.sliderBorrow?.noUiSlider?.destroy();
+    this.sliderSupply?.noUiSlider?.destroy();
+    this.supplyChart?.remove();
+    this.borrowChart?.remove();
+
+    // clear subscriptions
+    this.afterCoreDataReloadSub?.unsubscribe();
+    this.afterUserDataReloadSub?.unsubscribe();
+    this.collapseMarketAssetsSub?.unsubscribe();
+    this.collapseOtherAssetsTableSub?.unsubscribe();
+    this.removeAdjustClassSub?.unsubscribe();
+    this.showDefaultActionsSub?.unsubscribe();
+    this.disableAssetsInputsSub?.unsubscribe();
+    this.userTotalRiskChangeSub?.unsubscribe();
   }
 
   ngAfterViewInit(): void {
@@ -156,26 +211,28 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
     this.supplyChart?.subscribeCrosshairMove((param: any) => {
       if (!param?.point) {
-        this.setText(this.supplyApyEl, `${this.to2DecimalRoundedOffPercentString(this.getMarketSupplyRate())} APY`);
+        this.dynamicSupplyApyActive = false;
         return;
       }
 
       const supplyApy = param.seriesPrices.entries().next().value;
       if (supplyApy && supplyApy.length > 1) {
-        this.setText(this.supplyApyEl, `${Utils.roundOffTo2Decimals(supplyApy[1])}% APY`);
+        this.dynamicSupplyApy = new BigNumber(supplyApy[1]).dividedBy(100);
+        this.dynamicSupplyApyActive = true;
       }
     });
 
     this.borrowChart?.subscribeCrosshairMove((param: any) => {
       if (!param?.point) {
-        this.setText(this.borrowAprEl, `${this.to2DecimalRoundedOffPercentString(this.makeAbsolute(this.getMarketBorrowRate()))} APR`);
+        this.dynamicBorrowApyActive = false;
         return;
       }
 
       const borrowApr = param?.seriesPrices?.entries()?.next()?.value;
 
       if (borrowApr && borrowApr.length > 1) {
-        this.setText(this.borrowAprEl, `${Utils.roundOffTo2Decimals(borrowApr[1])}% APR`);
+        this.dynamicBorrowApy = new BigNumber(borrowApr[1]).dividedBy(100).negated();
+        this.dynamicBorrowApyActive = true;
       }
 
     });
@@ -217,281 +274,6 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     this.updateApyCharts();
   }
 
-  ommApyCheckedChange(): void {
-    // TODO trigger any potential logic needed
-  }
-
-  /**
-   * On sign in to supply click
-   */
-  onSignInClick(): void {
-    this.collapseAssetTableSlideUp();
-    this.modalService.showNewModal(ModalType.SIGN_IN);
-  }
-
-  /**
-   * On Adjust cancel click
-   */
-  onAdjustCancelClick(): void {
-    this.inputSupplyActive = false;
-    this.inputBorrowActive = false;
-
-    // Reset actions
-    this.showDefaultActions();
-
-    // Remove adjust
-    this.removeAdjustClass();
-
-    // Remove red border class on input
-    this.removeInputRedBorderClass();
-
-    // Reset user asset sliders
-    this.setSupplySliderValue(this.persistenceService.getUserSuppliedAssetBalance(this.asset.tag), !this.sIcxSelected);
-    this.setBorrowSliderValue(this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag));
-
-    this.sliderSupply.setAttribute("disabled", "");
-    this.sliderBorrow.setAttribute("disabled", "");
-
-    // Disable asset-user inputs
-    this.disableInputs();
-  }
-
-  /**
-   * Borrow adjust
-   */
-  onBorrowAdjustClick(): void {
-    this.inputSupplyActive = false;
-    this.inputBorrowActive = true;
-
-    /** Setup actions */
-    this.addClass(this.borrowEl, "adjust");
-    this.removeClass(this.supplyEl, "adjust");
-    this.removeClass(this.supplyAction1El, "hide");
-    this.addClass(this.supplyAction2El, "hide");
-    this.addClass(this.borrowAction1El, "hide");
-    this.removeClass(this.borrowAction2El, "hide");
-
-    /** Reset Supply sliders */
-    this.disableAndResetSupplySlider();
-
-    /** Reset Supply inputs */
-    this.resetSupplyInputs();
-
-    /** Enable Borrow of asset-user */
-    this.enableAssetBorrow();
-  }
-
-  /**
-   * Supply adjust
-   */
-  onSupplyAdjustClick(): void {
-    this.inputSupplyActive = true;
-    this.inputBorrowActive = false;
-
-    /** Setup actions */
-    this.addClass(this.supplyEl, "adjust");
-    this.removeClass(this.borrowEl, "adjust");
-    this.addClass(this.supplyAction1El, "hide");
-    this.removeClass(this.supplyAction2El, "hide");
-    this.removeClass(this.borrowAction1El, "hide");
-    this.addClass(this.borrowAction2El, "hide");
-
-    /** Reset Borrow sliders */
-    this.resetBorrowSliders();
-
-    /** Reset Borrow inputs */
-    this.resetBorrowInputs();
-
-    /** Enable Supply inputs of asset-user */
-    this.inputSupplyEl.removeAttribute("disabled");
-    this.sliderSupply.removeAttribute("disabled");
-
-    // set supply slider value
-    this.setSupplySliderValue(this.persistenceService.getUserSuppliedAssetBalance(this.asset.tag), !this.sIcxSelected);
-  }
-
-
-  /**
-   * Asset expand logic
-   */
-  onAssetClick(): void {
-    // trigger resize
-    this.updateApyCharts();
-
-    this.inputSupplyActive = false;
-    this.inputBorrowActive = false;
-
-    // reset sliders
-    this.disableAndResetSupplySlider();
-    this.disableAndResetBorrowSlider();
-
-    /** Layout */
-
-    if (this.index === 0) {
-      // Expand asset-user table
-      this.assetYourEl.classList.toggle('active');
-      $(this.marketExpandedEl).slideToggle();
-    }
-
-    // Collapse other assets table
-    this.collOtherAssetTables.emit(this.asset.tag);
-
-    if (this.index !== 0) {
-      this.assetYourEl.classList.toggle('active');
-      $(this.marketExpandedEl).slideToggle();
-    }
-
-    /** Set everything to default */
-
-    // Show default actions
-    this.showDefaultActions();
-
-    // Remove adjust class
-    this.removeAdjustClass();
-
-    // Remove red border class on input
-    this.removeInputRedBorderClass();
-
-    // Reset user asset sliders
-    this.setSupplySliderValue(this.persistenceService.getUserSuppliedAssetBalance(this.asset.tag), !this.sIcxSelected);
-    this.setBorrowSliderValue(this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag));
-
-    // disable inputs
-    this.disableInputs();
-
-    this.resetChartsView();
-  }
-
-  /**
-   * Logic to trigger on supply amount change after 1 sec of user keyup
-   */
-  onInputSupplyLostFocus(): void {
-    this.delay(() => {
-      const value = this.getInputSupplyValue();
-
-      if (value.isGreaterThan(this.supplySliderMaxValue())) {
-        this.inputSupplyEl.classList.add("red-border");
-      } else {
-        // reset border color if it passes the check
-        this.inputSupplyEl.classList.remove("red-border");
-        // set slider value
-        this.setSupplySliderValue(value);
-      }
-    }, 1250 );
-  }
-
-  /**
-   * Logic to trigger on borrow amount change after 1 sec of user keyup
-   */
-  onInputBorrowLostFocus(): void {
-    this.delay(() => {
-      const value = this.getInputBorrowValue();
-
-      // stop slider on min (do not allow to go below "Used" repayment a.k.a user available balance of asset)
-      const borrowUsed = this.getBorrowUsed();
-      if (!borrowUsed.isZero()) {
-        if (value.isLessThan(borrowUsed)) {
-          const newValue = borrowUsed.dp(2);
-          this.inputBorrowEl.value = Utils.formatNumberToUSLocaleString(borrowUsed);
-          this.sliderBorrow.noUiSlider.set(newValue.toNumber());
-          return;
-        }
-      }
-
-      if (value.isGreaterThan(this.borrowSliderMaxValue())) {
-        this.inputBorrowEl.classList.add("red-border");
-      } else {
-        // reset border color if it passes the check
-        this.inputBorrowEl.classList.remove("red-border");
-        // set slider value
-        this.setBorrowSliderValue(value);
-      }
-    }, 1250 );
-  }
-
-
-  /**
-   * Logic to trigger when user clicks confirm of asset-user supply
-   */
-  onAssetSupplyConfirmClick(): void {
-    let value = this.getInputSupplyValue().dp(2);
-    log.debug(`Value: ${value}`);
-
-    // check that supplied value is not greater than max
-    const max = this.supplySliderMaxValue();
-    if (value.isGreaterThan(max)) {
-      value = max;
-      this.setSupplySliderValue(value);
-      return;
-    }
-
-    const currentlySupplied = this.getUserSuppliedAssetBalance();
-    log.debug(`Currently supplied (before): ${this.getUserSuppliedAssetBalance()}`);
-
-    // calculate the difference
-    const supplyAmountDiff = Utils.subtract(value, currentlySupplied);
-    log.debug(`supplyAmountDiff = ${supplyAmountDiff}`);
-
-    const after = value;
-    log.debug(`after = ${after}`);
-    const amount = supplyAmountDiff.abs();
-    log.debug(`amount = ${amount}`);
-    const risk = this.getCurrentDynamicRisk();
-
-    const asset = this.sIcxSelected ? Asset.getAdjustedAsset(CollateralAssetTag.sICX, this.asset) : this.asset;
-    if (supplyAmountDiff.isGreaterThan(Utils.ZERO)) {
-      this.modalService.showNewModal(ModalType.SUPPLY, new AssetAction(asset, currentlySupplied, after, amount, risk));
-    } else if (supplyAmountDiff.isLessThan(Utils.ZERO)) {
-      this.modalService.showNewModal(ModalType.WITHDRAW, new AssetAction(asset, currentlySupplied, after, amount, risk));
-    } else {
-      this.notificationService.showNewNotification("No change in supplied value.");
-      return;
-    }
-  }
-
-  /**
-   * Logic to trigger when user clicks confirm of asset-user borrow
-   */
-  onAssetBorrowConfirmClick(): void {
-    let value = this.getInputBorrowValue().dp(2);
-
-    log.debug(`Currently borrowed (before): ${this.getUserBorrowedAssetBalance()}`);
-    log.debug(`Value: ${value}`);
-
-    // check that borrowed value is not greater than max
-    const max = this.borrowSliderMaxValue();
-    if (value.isGreaterThan(max)) {
-      value = max;
-      this.setBorrowSliderValue(value);
-      return;
-    }
-
-    const currentlyBorrowed = this.getUserBorrowedAssetBalance();
-
-    // calculate the difference and fix to 2 decimals
-    const borrowAmountDiff = Utils.subtract(value, currentlyBorrowed);
-    log.debug(`borrowAmountDiff: ${borrowAmountDiff}`);
-
-    const after = value;
-    log.debug(`after: ${after}`);
-    let amount = borrowAmountDiff.abs();
-    const risk = this.getCurrentDynamicRisk();
-
-    if (borrowAmountDiff.isGreaterThan(Utils.ZERO)) {
-      this.modalService.showNewModal(ModalType.BORROW, new AssetAction(this.asset, currentlyBorrowed , after, amount, risk));
-    } else if (borrowAmountDiff.isLessThan(Utils.ZERO)) {
-      // full repayment
-      if (after.isZero()) {
-        amount = currentlyBorrowed;
-        log.debug("FULL REPAYMENT currentlyBorrowed = " + currentlyBorrowed.toString());
-      }
-
-      this.modalService.showNewModal(ModalType.REPAY, new AssetAction(this.asset, currentlyBorrowed , after, amount, risk));
-    }  else {
-      this.notificationService.showNewNotification("No change in borrowed value.");
-      return;
-    }
-  }
 
   /**
    * Supply / Borrow sliders
@@ -504,7 +286,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
       undefined, undefined, undefined, {min: [0], max: [this.deriveSupplySliderMaxValue(suppliedMax.dp(2))]});
 
     // create and set borrow slider
-    const userBorrowed = this.getUserBorrowedAssetBalance();
+    const userBorrowed = this.userBorrowedAssetBalance;
     const borrowAvailable = this.calculationService.calculateAvailableBorrowForAsset(this.asset.tag);
 
     // borrow max is either borrowed + available OR borrowed in case borrowAvailable is negative (risk > 76)
@@ -517,6 +299,9 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
    * Handle variable/state changes for subscribed assets
    */
   registerSubscriptions(): void {
+    this.subscribeToCoreDataReload();
+    this.subscribeToUserDataReload();
+
     // handle sIcxSelected change
     this.subscribeTosIcxSelectedChange();
 
@@ -532,6 +317,55 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     this.subscribeToInterestHistoryChange();
   }
 
+  public subscribeToUserDataReload(): void {
+    this.stateChangeService.afterUserDataReload$.subscribe(() => {
+
+      this.initCoreValues();
+      this.initUserValues();
+    });
+  }
+
+  public subscribeToCoreDataReload(): void {
+    this.stateChangeService.afterCoreDataReload$.subscribe(() => {
+      this.initCoreValues();
+      this.initUserValues();
+    });
+  }
+
+
+  initUserValues(): void {
+    if (this.userLoggedIn()) {
+      const userLiquidityApy = this.persistenceService.getUserAssetReserveLiquidityRate(this.asset.tag);
+      const userBorrowApy = this.persistenceService.getUserAssetReserveBorrowRate(this.asset.tag);
+
+      this.userMarketsSupplyApy = userLiquidityApy;
+      this.userMarketsBorrowApy = userBorrowApy;
+      this.userMarketsSupplyApyPlusOmmApy = userLiquidityApy.plus(this.calculationService.calculateUserSupplyOmmRewardsApy(this.asset.tag));
+      this.userMarketsBorrowApyPlusOmmApy = this.calculationService.calculateUserBorrowOmmRewardsApy(this.asset.tag).minus(userBorrowApy);
+      this.userBorrowedAssetBalanceUSD = this.getUserBorrowedAssetBalanceUSD();
+      this.userBorrowedAssetBalance = this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag).dp(2);
+
+      this.disableActiveStates();
+    }
+  }
+
+  disableActiveStates(): void {
+    this.dynamicSupplyApyActive = false;
+    this.dynamicBorrowApyActive = false;
+    this.inputSupplyActive = false;
+    this.inputBorrowActive = false;
+  }
+
+  initCoreValues(): void {
+    const liquidityApy = this.persistenceService.getAssetReserveLiquidityRate(this.asset.tag);
+    const borrowApy = this.persistenceService.getAssetReserveBorrowRate(this.asset.tag);
+
+    this.allMarketsSupplyApy = liquidityApy;
+    this.allMarketsBorrowApy = borrowApy;
+    this.allMarketsSupplyApyPlusOmmApy = liquidityApy.plus(this.calculationService.calculateSupplyOmmRewardsApy(this.asset.tag));
+    this.allMarketsBorrowApyPlusOmmApy = this.calculationService.calculateBorrowOmmRewardsApy(this.asset.tag).minus(borrowApy);
+  }
+
   private subscribeToInterestHistoryChange(): void {
     this.stateChangeService.interestHistoryChange$.subscribe(() => {
       this.initInterestHistoryCharts();
@@ -541,11 +375,13 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   private subscribeToCollapseTable(): void {
-    this.stateChangeService.collapseMarketAssets$.subscribe(() => this.collapseAssetTable());
+    this.collapseMarketAssetsSub = this.stateChangeService.collapseMarketAssets$.subscribe(() => {
+      this.collapseAssetTable();
+    });
   }
 
   private subscribeToCollapseOtherAssetsTableUpdate(): void {
-    this.stateChangeService.collapseOtherAssetsTable$.subscribe(assetTag => {
+    this.collapseOtherAssetsTableSub = this.stateChangeService.collapseOtherAssetsTable$.subscribe(assetTag => {
       if (this.asset.tag !== assetTag) {
         this.collapseAssetTableSlideUp();
       }
@@ -553,19 +389,19 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   private subscribeToRemoveAdjustClass(): void {
-    this.stateChangeService.removeAdjustClass$.subscribe(() => this.removeAdjustClass());
+    this.removeAdjustClassSub = this.stateChangeService.removeAdjustClass$.subscribe(() => this.removeAdjustClass());
   }
 
   private subscribeToShowDefaultActionsUpdate(): void {
-    this.stateChangeService.showDefaultActions$.subscribe(() => this.showDefaultActions());
+    this.showDefaultActionsSub = this.stateChangeService.showDefaultActions$.subscribe(() => this.showDefaultActions());
   }
 
   private subscribeToDisableAssetsInputs(): void {
-    this.stateChangeService.disableAssetsInputs$.subscribe(() => this.disableInputs());
+    this.disableAssetsInputsSub = this.stateChangeService.disableAssetsInputs$.subscribe(() => this.disableInputs());
   }
 
   private subscribeTosIcxSelectedChange(): void {
-    if (this.isAssetIcx()) {
+    if (this.assetIsIcx) {
       this.stateChangeService.sIcxSelectedChange$.subscribe(sIcxSelected => {
         this.sIcxSelected = sIcxSelected;
         this.updateSupplySlider(this.persistenceService.getUserAssetReserve(this.asset.tag));
@@ -575,27 +411,8 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
   private subscribeToTotalRiskChange(): void {
     // subscribe to total risk changes
-    this.stateChangeService.userTotalRiskChange.subscribe(totalRisk => {
+    this.userTotalRiskChangeSub = this.stateChangeService.userTotalRiskChange.subscribe(totalRisk => {
       this.totalRisk = totalRisk;
-    });
-  }
-
-  public subscribeToUserAccountDataChange(): void {
-    this.stateChangeService.userAccountDataChange.subscribe(() => {
-      this.updateSupplyData();
-      this.updateBorrowData();
-      this.updateSupplySlider();
-      this.updateBorrowSlider();
-    });
-  }
-
-  public subscribeToUserAssetReserveChange(): void {
-    this.stateChangeService.userAllReserveChange$.subscribe((userReserves) => {
-      const reserve = userReserves.reserveMap.get(this.asset.tag);
-      this.updateSupplyData();
-      this.updateBorrowData();
-      this.updateSupplySlider(reserve);
-      this.updateBorrowSlider(reserve);
     });
   }
 
@@ -620,15 +437,34 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   // update borrow data (daily rewards, etc..) values
   updateBorrowData(borrowed: BigNumber = this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag)): void {
     // Update asset-user's borrow interest
-    this.setText(this.borrInterestEl, assetPrefixMinusFormat(assetToCollateralAssetTag(this.asset.tag)).to(
+    this.setText(this.borrInterestEl, assetFormat(assetToCollateralAssetTag(this.asset.tag)).to(
       this.getDailyBorrowInterest(borrowed).dp(2).toNumber()));
 
-    // Update asset-user's borrow omm rewards
-    this.setText(this.borrRewardsEl, ommPrefixPlusFormat.to(this.calculationService.calculateUserDailyBorrowOmmReward(
-      this.asset.tag, borrowed).dp(2).toNumber()));
+    // Update asset-user's borrow omm rewards TODO refactor
+    let userDailyBorrowOmmReward;
+    if (!this.inputBorrowActive) {
+      userDailyBorrowOmmReward = this.persistenceService.userDailyOmmRewards?.getBorrowRewardForAsset(this.asset.tag) ?? new BigNumber(0);
+    } else {
+      userDailyBorrowOmmReward = this.calculationService.calculateUserDailyBorrowOmmReward(this.asset.tag, borrowed);
+    }
+    this.setText(this.borrRewardsEl, ommPrefixFormat.to(userDailyBorrowOmmReward.dp(2).toNumber()));
 
     // update risk data
     this.handleBorrowTotalRisk(borrowed);
+  }
+
+  // Update asset-user's borrow omm rewards TODO refactor
+  updateUserDailyBorrowOmmReward(borrowed: BigNumber): BigNumber {
+    let userDailyBorrowOmmReward;
+    if (!this.inputBorrowActive) {
+      userDailyBorrowOmmReward = this.persistenceService.userDailyOmmRewards?.getBorrowRewardForAsset(this.asset.tag) ?? new BigNumber(0);
+    } else {
+      userDailyBorrowOmmReward = this.calculationService.calculateUserDailyBorrowOmmReward(this.asset.tag, borrowed);
+    }
+    const roundedDownReward = userDailyBorrowOmmReward.dp(2).toNumber();
+    // Update asset-user's borrow omm rewards
+    this.setText(this.borrRewardsEl, ommPrefixFormat.to(roundedDownReward));
+    return userDailyBorrowOmmReward;
   }
 
   updateBorrowSlider(reserve?: UserReserveData): void {
@@ -637,20 +473,20 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     if (!reserve) {
       // set borrowed available value
       const borrowAvailable = this.calculationService.calculateAvailableBorrowForAsset(this.asset.tag);
-      this.setBorrowAvailableInput(borrowAvailable.isNegative() ? new BigNumber("0") : borrowAvailable.dp(2));
+      this.setBorrowAvailableInput(borrowAvailable.isNegative() ? new BigNumber("0") : borrowAvailable);
 
       // update asset borrow slider max value to  -> borrowed + borrow available
-      max = this.getUserBorrowedAssetBalance().plus(borrowAvailable).dp(2);
+      max = this.userBorrowedAssetBalance.plus(borrowAvailable).dp(2);
     } else {
       // set borrowed available value
       const borrowAvailable = this.calculationService.calculateAvailableBorrowForAsset(this.asset.tag);
-      this.setBorrowAvailableInput(borrowAvailable.isNegative() ? new BigNumber("0") : borrowAvailable.dp(2));
+      this.setBorrowAvailableInput(borrowAvailable.isNegative() ? new BigNumber("0") : borrowAvailable);
 
       // update asset borrow slider max value to  -> borrowed + borrow available
-      max = borrowAvailable.isNegative() ? borrowAvailable : this.getUserBorrowedAssetBalance().plus(borrowAvailable);
+      max = borrowAvailable.isNegative() ? borrowAvailable : this.userBorrowedAssetBalance.plus(borrowAvailable);
     }
 
-    this.sliderBorrow.noUiSlider.updateOptions({
+    this.sliderBorrow?.noUiSlider?.updateOptions({
       range: {
         min: 0,
         max: this.deriveBorrowSliderMaxValue(max.dp(2)) // min and max must not equal
@@ -680,11 +516,12 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     this.inputSupplyAvailable.value = Utils.formatNumberToUSLocaleString(supplyAvailable);
 
     // update asset supply slider max value to  -> supplied + supplied available
-    const oTokenBalance = this.sIcxSelected ? reserve.currentOTokenBalance.dp(2)
-      : this.SICXToICXIfAssetIsICX(reserve.currentOTokenBalance).dp(2);
+    const currentOTokenBalance = reserve.currentOTokenBalance.dp(2);
+    const oTokenBalance = this.sIcxSelected ? currentOTokenBalance :
+      this.SICXToICXIfAssetIsICX(reserve.currentOTokenBalance).dp(2);
     const max = oTokenBalance.plus(supplyAvailable);
 
-    this.sliderSupply.noUiSlider.updateOptions({
+    this.sliderSupply?.noUiSlider?.updateOptions({
       range: {
         min: 0,
         max: this.deriveSupplySliderMaxValue(max.dp(2)) // min and max must not equal
@@ -694,26 +531,6 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
     // update supply slider value
     this.setSupplySliderValue(reserve.currentOTokenBalance, !this.sIcxSelected);
-  }
-
-  public subscribeToUserBalanceChange(): void {
-    // handle asset-user balance change
-    this.stateChangeService.userBalanceChangeMap.get(this.asset.tag)!.subscribe(newBalance => {
-      log.debug(`${this.asset.tag} balance changed to ${newBalance}`);
-      newBalance = newBalance.dp(2);
-
-      if (this.sliderSupply) {
-        this.inputSupplyAvailable.value = Utils.formatNumberToUSLocaleString(newBalance);
-
-        const max = Utils.add(newBalance, this.getUserSuppliedAssetBalance());
-        this.sliderSupply.noUiSlider.updateOptions({
-          range: {
-            min: 0,
-            max: this.deriveSupplySliderMaxValue(max.dp(2)) // min and max must not equal
-          }
-        });
-      }
-    });
   }
 
   /**
@@ -734,7 +551,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
       // in case of ICX leave 2 ICX for the fees if slider max is greater than 2x the buffer
       if (this.supplySliderMaxValue().gt(ICX_SUPPLY_BUFFER * 2)) {
         const sliderMinusBuffer = this.supplySliderMaxValue().minus(ICX_SUPPLY_BUFFER).dp(2).toNumber();
-        if (!this.sIcxSelected && this.isAssetIcx() && value > sliderMinusBuffer) {
+        if (!this.sIcxSelected && this.assetIsIcx && value > sliderMinusBuffer) {
           value = sliderMinusBuffer;
         }
       }
@@ -755,16 +572,34 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
       const convertedValue = this.convertSuppliedValue(bigNumValue);
 
       // Update asset-user's supply omm rewards
-      this.updateUserDailySupplyOmmReward(convertedValue);
+      const userDailySupplyOmmReward = this.updateUserDailySupplyOmmReward(convertedValue);
+
+      // update dynamic APY
+      this.updateUserDynamicSupplyApy(convertedValue, userDailySupplyOmmReward);
 
       // handle risk calculation
       this.handleSupplyTotalRisk(convertedValue);
     });
   }
 
-  updateUserDailySupplyOmmReward(convertedValue: BigNumber): void {
-    this.setText(this.suppRewardsEl, ommPrefixPlusFormat.to(this.calculationService.calculateUserDailySupplyOmmReward(this.asset.tag,
-      convertedValue).dp(2).toNumber()));
+  updateUserDynamicSupplyApy(convertedValue: BigNumber, userDailySupplyOmmReward: BigNumber): void {
+    if (this.ommApyChecked) {
+      this.dynamicSupplyApy = this.userMarketsSupplyApy.plus(this.calculationService.calculateUserDynamicSupplyApy(userDailySupplyOmmReward,
+        convertedValue, this.asset.tag));
+    }
+  }
+
+  updateUserDailySupplyOmmReward(convertedValue: BigNumber): BigNumber {
+    let userDailySupplyOmmReward;
+    if (!this.inputSupplyActive) {
+      userDailySupplyOmmReward = this.persistenceService.userDailyOmmRewards?.getSupplyRewardForAsset(this.asset.tag) ?? new BigNumber(0);
+    } else {
+      userDailySupplyOmmReward = this.calculationService.calculateUserDailySupplyOmmReward(this.asset.tag, convertedValue);
+    }
+
+    const roundedDownReward = userDailySupplyOmmReward.dp(2).toNumber();
+    this.setText(this.suppRewardsEl, ommPrefixFormat.to(roundedDownReward));
+    return userDailySupplyOmmReward;
   }
 
   convertSuppliedValue(bigNumValue: BigNumber): BigNumber {
@@ -776,17 +611,17 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
         sIcx = bigNumValue;
       }
       return sIcx;
-    } else if (!this.sIcxSelected && this.isAssetIcx()) {
+    } else if (!this.sIcxSelected && this.assetIsIcx) {
       return this.convertFromICXTosICX(bigNumValue);
     } else {
       return bigNumValue;
     }
   }
 
-  updateDailySupplyInterest(bigNumValue: BigNumber): void {
+  updateDailySupplyInterest(supplyValue: BigNumber): void {
     const assetTag = this.sIcxSelected ? CollateralAssetTag.sICX : this.asset.tag;
     // Update asset-user's supply interest
-    this.setText(this.suppInterestEl, assetPrefixPlusFormat(assetTag).to(this.getDailySupplyInterest(assetTag, bigNumValue)
+    this.setText(this.suppInterestEl, assetFormat(assetTag).to(this.calculateDynamicDailySupplyInterest(assetTag, supplyValue)
       .dp(2).toNumber()));
   }
 
@@ -846,14 +681,11 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
       if (!borrowUsed.isZero() && bigNumValue.isLessThan(borrowUsed)) {
         const newBorrowedVal = borrowUsed.dp(2, BigNumber.ROUND_UP);
-        log.debug(`newBorrowedVal = ${newBorrowedVal.toNumber()}`);
-        log.debug(`borrowUsed = ${newBorrowedVal.toNumber()}`);
         // Update asset-user borrowed text box
         this.inputBorrowEl.value = Utils.formatNumberToUSLocaleString(newBorrowedVal);
 
         // Update asset-user available text box
         this.setBorrowAvailableInput(Utils.subtract(this.borrowSliderMaxValue(), newBorrowedVal).dp(2));
-        log.debug(`this.sliderBorrow.noUiSlider.set ${newBorrowedVal.toNumber()} [RECURSION]`);
         return this.sliderBorrow.noUiSlider.set(newBorrowedVal.toNumber());
       }
 
@@ -864,11 +696,29 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
       this.setBorrowAvailableInput(Utils.subtract(this.borrowSliderMaxValue(), bigNumValue).dp(2));
 
       this.updateBorrowData(bigNumValue);
+      // Update asset-user's borrow interest
+      this.setText(this.borrInterestEl, assetFormat(assetToCollateralAssetTag(this.asset.tag)).to(
+        this.getDailyBorrowInterest(bigNumValue).dp(2).toNumber()));
+
+      // Update asset-user's borrow omm rewards
+      const userDailyBorrowOmmReward = this.updateUserDailyBorrowOmmReward(bigNumValue);
+
+      this.updateUserDynamicBorrowApy(bigNumValue, userDailyBorrowOmmReward);
+
+      // update risk data
+      this.handleBorrowTotalRisk(bigNumValue);
     });
   }
 
+  updateUserDynamicBorrowApy(borrowed: BigNumber, userDailyBorrowOmmReward: BigNumber): void {
+    if (this.ommApyChecked) {
+      this.dynamicBorrowApy = this.userMarketsBorrowApy.plus(this.calculationService.calculateUserDynamicBorrowApy(userDailyBorrowOmmReward,
+        borrowed, this.asset.tag));
+    }
+  }
+
   private handleBorrowTotalRisk(newBorrowBalance: BigNumber): void {
-    if (newBorrowBalance.gte(Utils.ZERO)) {
+    if (newBorrowBalance.gt(Utils.ZERO)) {
       // show risk data
       $('.risk-container').css("display", "block");
 
@@ -876,7 +726,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
       $('.risk-message-noassets').css("display", "none");
     }
 
-    const borrowDiff = Utils.subtract(this.getUserBorrowedAssetBalance(), newBorrowBalance);
+    const borrowDiff = Utils.subtract(this.userBorrowedAssetBalance, newBorrowBalance);
 
     let totalRisk;
     if (borrowDiff.isGreaterThan(Utils.ZERO)) {
@@ -954,43 +804,39 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     if (!value || value.isZero()) {
       return new BigNumber("0");
     }
-    return this.isAssetIcx() ? this.convertSICXToICX(value) : value;
+    return this.assetIsIcx ? this.convertSICXToICX(value) : value;
   }
 
   private setSupplySliderValue(value: BigNumber, convert = false): void {
-    if (!this.userLoggedIn()) {
-      return;
-    }
+    if (this.userLoggedIn() && this.sliderSupply?.noUiSlider) {
+      let res: BigNumber;
+      // if asset is ICX, convert sICX -> ICX if convert flag is true
+      if (convert && this.assetIsIcx) {
+        res = this.convertSICXToICX(value).dp(2);
+      } else {
+        res = value.dp(2);
+      }
 
-    let res: BigNumber;
-    // if asset is ICX, convert sICX -> ICX if convert flag is true
-    if (convert && this.isAssetIcx()) {
-      res = this.convertSICXToICX(value).dp(2);
-    } else {
-      res = value.dp(2);
-    }
+      // if value is greater than slider max, update the sliders max and set the value
+      if (!res.isZero() && res.isGreaterThan(this.supplySliderMaxValue())) {
+        this.sliderSupply.noUiSlider?.updateOptions({range: { min: 0, max: this.deriveSupplySliderMaxValue(res) }});
+      }
 
-    // if value is greater than slider max, update the sliders max and set the value
-    if (!res.isZero() && res.isGreaterThan(this.supplySliderMaxValue())) {
-      this.sliderSupply.noUiSlider.updateOptions({range: { min: 0, max: this.deriveSupplySliderMaxValue(res) }});
+      this.sliderSupply.noUiSlider.set(res.toNumber());
     }
-
-    this.sliderSupply.noUiSlider.set(res.toNumber());
   }
 
   private setBorrowSliderValue(value: BigNumber): void {
-    if (!this.userLoggedIn()) {
-      return;
+    if (this.userLoggedIn()) {
+      const res = value.dp(2);
+
+      // if value is greater than slider max, update the sliders max and set the value
+      if (!res.isZero() && res.isGreaterThan(this.borrowSliderMaxValue())) {
+        this.sliderBorrow.noUiSlider?.updateOptions({range: { min: 0, max: this.deriveBorrowSliderMaxValue(res) }});
+      }
+
+      this.sliderBorrow?.noUiSlider?.set(res.toNumber());
     }
-
-    const res = value.dp(2);
-
-    // if value is greater than slider max, update the sliders max and set the value
-    if (!res.isZero() && res.isGreaterThan(this.borrowSliderMaxValue())) {
-      this.sliderBorrow.noUiSlider.updateOptions({range: { min: 0, max: this.deriveBorrowSliderMaxValue(res) }});
-    }
-
-    this.sliderBorrow.noUiSlider.set(res.toNumber());
   }
 
   deriveSupplySliderMaxValue(max: BigNumber): number {
@@ -1029,11 +875,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     return res.dp(2);
   }
 
-  getUserBorrowedAssetBalance(): BigNumber {
-    return this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag).dp(2);
-  }
-
-  getUserBorrowedAssetBalanceUSD(): BigNumber {
+  private getUserBorrowedAssetBalanceUSD(): BigNumber {
     const reserve = this.persistenceService.getUserAssetReserve(this.asset.tag);
     const borrowBalanceUSD = reserve?.currentBorrowBalanceUSD ?? new BigNumber("0");
     const originationFeeUSD = reserve?.originationFee.multipliedBy(reserve?.exchangeRate) ?? new BigNumber("0");
@@ -1068,6 +910,20 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     }
   }
 
+  getSupplyRateForActiveMarket(): BigNumber {
+    if (this.dynamicSupplyApyActive) {
+      return this.dynamicSupplyApy;
+    }
+    return this.getUserSupplyApy();
+  }
+
+  getBorrowRateForActiveMarket(): BigNumber {
+    if (this.dynamicBorrowApyActive) {
+      return this.dynamicBorrowApy;
+    }
+    return this.isAllMarketViewActive() ? this.getMarketBorrowRate() : this.getUserBorrowApy();
+  }
+
   shouldHideSupplyContent(): boolean {
     return this.userAssetBalanceIsZero() && this.userAssetSuppliedBalanceIsZero() || !this.userLoggedIn();
   }
@@ -1076,7 +932,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     return this.persistenceService.userHasNotSuppliedAnyAsset() || this.shouldHideBorrowSlider() || this.isAssetOmm();
   }
 
-  getDailySupplyInterest(assetTag: AssetTag | CollateralAssetTag, amountBeingSupplied?: BigNumber): BigNumber {
+  calculateDynamicDailySupplyInterest(assetTag: AssetTag | CollateralAssetTag, amountBeingSupplied?: BigNumber): BigNumber {
     return this.calculationService.calculateUsersDailySupplyInterestForAsset(assetTag, amountBeingSupplied);
   }
 
@@ -1108,16 +964,6 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     $(this.marketExpandedEl).slideUp();
   }
 
-  hideAvailableAssetData(): void {
-    // Hide available assets data
-    $(this.assetYourEl).css("display", "none");
-  }
-
-  showAssetAvailableAndHideAssetYour(): void {
-    // Hide your asset-user version
-    $(this.assetYourEl).css("display", "none");
-  }
-
   removeAdjustClass(): void {
     // Remove adjust class
     this.removeClass(this.supplyEl, "adjust");
@@ -1139,13 +985,13 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   resetBorrowInputs(): void {
-    $(this.inputBorrowEl).attr('disabled', 'disabled');
-    $(this.inputBorrowAvailable).attr('disabled', 'disabled');
+    this.inputBorrowEl.setAttribute("disabled", "");
+    this.inputBorrowAvailable.setAttribute("disabled", "");
   }
 
   resetSupplyInputs(): void {
-    $(this.inputSupplyEl).attr('disabled', 'disabled');
-    $(this.inputSupplyAvailable).attr('disabled', 'disabled');
+    this.inputSupplyEl.setAttribute("disabled", "");
+    this.inputSupplyAvailable.setAttribute("disabled", "");
   }
 
   disableAndResetSupplySlider(): void {
@@ -1163,10 +1009,10 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
   disableInputs(): void {
     // Disable asset-user inputs (Your markets)
-    $(this.inputSupplyEl).attr('disabled', 'disabled');
-    $(this.inputSupplyAvailable).attr('disabled', 'disabled');
-    $(this.inputBorrowEl).attr('disabled', 'disabled');
-    $(this.inputBorrowAvailable).attr('disabled', 'disabled');
+    this.inputSupplyEl.setAttribute("disabled", "");
+    this.inputSupplyAvailable.setAttribute("disabled", "");
+    this.inputBorrowEl.setAttribute("disabled", "");
+    this.inputBorrowAvailable.setAttribute("disabled", "");
   }
 
   enableAssetBorrow(): void {
@@ -1177,14 +1023,6 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
   isAssetOmm(): boolean {
     return this.asset.tag === AssetTag.OMM;
-  }
-
-  hideAsset(): void {
-    $(this.assetYourEl).css("display", "none");
-  }
-
-  showAsset(): void {
-    $(this.assetYourEl).css("display", "table-row");
   }
 
   shouldShowBorrowDeny(): boolean {
@@ -1227,20 +1065,29 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   getTotalAssetBorrows(): BigNumber {
-    return this.persistenceService.getTotalAssetBorrows(this.asset.tag);
+    return this.persistenceService.getTotalAssetBorrows(this.asset.tag).dp(0, BigNumber.ROUND_HALF_CEIL);
   }
 
   getTotalLiquidity(): BigNumber {
     const res = this.persistenceService.getAssetReserveData(this.asset.tag)?.totalLiquidity ?? new BigNumber("0");
-    if (this.isAssetIcx() && !this.sIcxSelected) {
-      return this.convertSICXToICX(res);
+    if (this.assetIsIcx && !this.sIcxSelected) {
+      return this.convertSICXToICX(res).dp(0, BigNumber.ROUND_HALF_CEIL);
     } else {
-      return res;
+      return res.dp(0, BigNumber.ROUND_HALF_CEIL);
     }
   }
 
+  getTotalLiquidityUsd(): BigNumber {
+    return this.persistenceService.getAssetReserveData(this.asset.tag)?.totalLiquidityUSD ?? new BigNumber(0);
+  }
+
+  getTotalBorrowUsd(): BigNumber {
+    return this.persistenceService.getAssetReserveData(this.asset.tag)?.totalBorrowsUSD.dp(0, BigNumber.ROUND_HALF_CEIL)
+      ?? new BigNumber(0);
+  }
+
   assetRepayUsedPercentage(): BigNumber {
-    if (this.getUserBorrowedAssetBalance().isLessThanOrEqualTo(Utils.ZERO)){
+    if (this.userBorrowedAssetBalance.isLessThanOrEqualTo(Utils.ZERO)){
       return new BigNumber("0");
     }
 
@@ -1261,7 +1108,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
 
   // check if users balance is less than amount he has to repay
   isAssetBorrowUsed(): boolean {
-    if (this.getUserBorrowedAssetBalance().eq(Utils.ZERO)){
+    if (this.userBorrowedAssetBalance.eq(Utils.ZERO)){
       return false;
     }
 
@@ -1281,29 +1128,20 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
     return new BigNumber(usLocale.from(this.inputSupplyEl.value));
   }
 
-  shouldShowUnstaking(): boolean {
-    const amount = this.persistenceService.userUnstakingInfo?.totalAmount ?? new BigNumber("0");
-    return this.isAssetIcx() && amount.isGreaterThan(Utils.ZERO);
-  }
-
   getMarketBorrowRate(): BigNumber {
-    return this._ommApyChecked ? this.calculationService.calculateUserAndMarketReserveBorrowApy(this.asset.tag) :
-      Utils.makeNegativeNumber(this.persistenceService.getAssetReserveData(this.asset.tag)?.borrowRate ?? new BigNumber("0"));
+    return this.ommApyChecked ? this.allMarketsBorrowApyPlusOmmApy : Utils.toNegative(this.allMarketsBorrowApy);
   }
 
   getMarketSupplyRate(): BigNumber {
-    return this._ommApyChecked ? this.calculationService.calculateUserAndMarketReserveSupplyApy(this.asset.tag) :
-      this.persistenceService.getAssetReserveData(this.asset.tag)?.liquidityRate ?? new BigNumber("0");
-  }
-
-  getUserSupplyApy(): BigNumber | undefined {
-    return this._ommApyChecked ? this.getMarketSupplyRate() :
-      this.persistenceService.getUserAssetReserve(this.asset.tag)?.liquidityRate;
+    return this.ommApyChecked ? this.allMarketsSupplyApyPlusOmmApy : this.allMarketsSupplyApy;
   }
 
   getUserBorrowApy(): BigNumber {
-    return this._ommApyChecked ? this.getMarketBorrowRate() :
-      Utils.makeNegativeNumber(this.persistenceService.getUserAssetReserve(this.asset.tag)?.borrowRate ?? new BigNumber("0"));
+    return this.ommApyChecked ? this.userMarketsBorrowApyPlusOmmApy : Utils.toNegative(this.userMarketsBorrowApy);
+  }
+
+  getUserSupplyApy(): BigNumber {
+    return this.ommApyChecked ? this.userMarketsSupplyApyPlusOmmApy : this.userMarketsSupplyApy;
   }
 
   getUserTotalUnstakeAmount(): BigNumber {
@@ -1315,19 +1153,11 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   getAssetTagAdjusted(): string {
-    if (this.isAssetIcx()) {
-      return "ICX / sICX";
-    } else {
-      return this.asset.tag.toString();
-    }
+    return this.assetIsIcx ? "ICX / sICX" : this.asset.tag.toString();
   }
 
   getBorrowAssetTagAdjusted(): string {
-    if (this.isAssetIcx()) {
-      return "sICX";
-    } else {
-      return this.asset.tag.toString();
-    }
+    return this.assetIsIcx ? "sICX" : this.asset.tag.toString();
   }
 
   getInputPadding(inputSupply: boolean, tag?: string, el?: any): string {
@@ -1349,11 +1179,7 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   isAssetIcx(assetTag?: AssetTag | CollateralAssetTag): boolean {
-    if (assetTag) {
-      return assetTag === AssetTag.ICX;
-    }
-
-    return this.asset.tag === AssetTag.ICX;
+    return assetTag ? assetTag === AssetTag.ICX : this.asset.tag === AssetTag.ICX;
   }
 
   onClaimIcxClick(): void {
@@ -1381,10 +1207,290 @@ export class AssetComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   supplyAssetTag(): AssetTag | CollateralAssetTag {
-    if (this.sIcxSelected) {
-      return CollateralAssetTag.sICX;
+    return this.sIcxSelected ? CollateralAssetTag.sICX : this.asset.tag;
+  }
+
+  /**
+   * Click handlers
+   */
+
+  /**
+   * On sign in to supply click
+   */
+  onSignInClick(): void {
+    this.collapseAssetTableSlideUp();
+    this.modalService.showNewModal(ModalType.SIGN_IN);
+  }
+
+  /**
+   * On Adjust cancel click
+   */
+  onAdjustCancelClick(): void {
+    this.inputSupplyActive = false;
+    this.inputBorrowActive = false;
+
+
+    this.dynamicSupplyApyActive = false;
+    this.dynamicSupplyApy = this.getUserSupplyApy();
+    this.dynamicBorrowApyActive = false;
+    this.dynamicBorrowApy = this.getUserBorrowApy();
+
+    // Reset actions
+    this.showDefaultActions();
+
+    // Remove adjust
+    this.removeAdjustClass();
+
+    // Remove red border class on input
+    this.removeInputRedBorderClass();
+
+    // Reset user asset sliders
+    this.setSupplySliderValue(this.persistenceService.getUserSuppliedAssetBalance(this.asset.tag), !this.sIcxSelected);
+    this.setBorrowSliderValue(this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag));
+
+    this.sliderSupply.setAttribute("disabled", "");
+    this.sliderBorrow.setAttribute("disabled", "");
+
+    // Disable asset-user inputs
+    this.disableInputs();
+  }
+
+  /**
+   * Borrow adjust
+   */
+  onBorrowAdjustClick(): void {
+    this.inputSupplyActive = false;
+    this.inputBorrowActive = true;
+
+    this.dynamicSupplyApy = this.getUserSupplyApy();
+    this.dynamicBorrowApy = this.getUserBorrowApy();
+    this.dynamicSupplyApyActive = false;
+    this.dynamicBorrowApyActive = true;
+
+    /** Setup actions */
+    this.addClass(this.borrowEl, "adjust");
+    this.removeClass(this.supplyEl, "adjust");
+    this.removeClass(this.supplyAction1El, "hide");
+    this.addClass(this.supplyAction2El, "hide");
+    this.addClass(this.borrowAction1El, "hide");
+    this.removeClass(this.borrowAction2El, "hide");
+
+    /** Reset Supply sliders */
+    this.disableAndResetSupplySlider();
+
+    /** Reset Supply inputs */
+    this.resetSupplyInputs();
+
+    /** Enable Borrow of asset-user */
+    this.enableAssetBorrow();
+  }
+
+  /**
+   * Supply adjust
+   */
+  onSupplyAdjustClick(): void {
+    this.inputSupplyActive = true;
+    this.inputBorrowActive = false;
+
+    this.dynamicSupplyApy = this.getUserSupplyApy();
+    this.dynamicBorrowApy = this.getUserBorrowApy();
+    this.dynamicSupplyApyActive = true;
+    this.dynamicBorrowApyActive = false;
+
+    /** Setup actions */
+    this.addClass(this.supplyEl, "adjust");
+    this.removeClass(this.borrowEl, "adjust");
+    this.addClass(this.supplyAction1El, "hide");
+    this.removeClass(this.supplyAction2El, "hide");
+    this.removeClass(this.borrowAction1El, "hide");
+    this.addClass(this.borrowAction2El, "hide");
+
+    /** Reset Borrow sliders */
+    this.resetBorrowSliders();
+
+    /** Reset Borrow inputs */
+    this.resetBorrowInputs();
+
+    /** Enable Supply inputs of asset-user */
+    this.inputSupplyEl.removeAttribute("disabled");
+    this.sliderSupply.removeAttribute("disabled");
+
+    // set supply slider value
+    this.setSupplySliderValue(this.persistenceService.getUserSuppliedAssetBalance(this.asset.tag), !this.sIcxSelected);
+  }
+
+
+  /**
+   * Asset expand logic
+   */
+  onAssetClick(): void {
+    // trigger resize
+    this.updateApyCharts();
+
+    this.inputSupplyActive = false;
+    this.inputBorrowActive = false;
+
+    // reset sliders
+    this.disableAndResetSupplySlider();
+    this.disableAndResetBorrowSlider();
+
+    /** Layout */
+
+    if (this.index === 0) {
+      // Expand asset-user table
+      this.assetYourEl.classList.toggle('active');
+      $(this.marketExpandedEl).slideToggle();
+    }
+
+    // Collapse other assets table
+    this.collOtherAssetTables.emit(this.asset.tag);
+
+    if (this.index !== 0) {
+      this.assetYourEl.classList.toggle('active');
+      $(this.marketExpandedEl).slideToggle();
+    }
+
+    /** Set everything to default */
+
+    // Show default actions
+    this.showDefaultActions();
+
+    // Remove adjust class
+    this.removeAdjustClass();
+
+    // Remove red border class on input
+    this.removeInputRedBorderClass();
+
+    // Reset user asset sliders
+    this.setSupplySliderValue(this.persistenceService.getUserSuppliedAssetBalance(this.asset.tag), !this.sIcxSelected);
+    this.setBorrowSliderValue(this.persistenceService.getUserBorrowedAssetBalancePlusOrigFee(this.asset.tag));
+
+    // disable inputs
+    this.disableInputs();
+
+    this.resetChartsView();
+  }
+
+
+
+  /**
+   * Logic to trigger on supply amount change after 1 sec of user keyup
+   */
+  onInputSupplyLostFocus(): void {
+    this.delay(() => {
+      const value = this.getInputSupplyValue();
+
+      if (value.isGreaterThan(this.supplySliderMaxValue())) {
+        this.inputSupplyEl.classList.add("red-border");
+      } else {
+        // reset border color if it passes the check
+        this.inputSupplyEl.classList.remove("red-border");
+        // set slider value
+        this.setSupplySliderValue(value);
+      }
+    }, 1250 );
+  }
+
+  /**
+   * Logic to trigger on borrow amount change after 1 sec of user keyup
+   */
+  onInputBorrowLostFocus(): void {
+    this.delay(() => {
+      const value = this.getInputBorrowValue();
+
+      // stop slider on min (do not allow to go below "Used" repayment a.k.a user available balance of asset)
+      const borrowUsed = this.getBorrowUsed();
+      if (!borrowUsed.isZero()) {
+        if (value.isLessThan(borrowUsed)) {
+          const newValue = borrowUsed.dp(2);
+          this.inputBorrowEl.value = Utils.formatNumberToUSLocaleString(borrowUsed);
+          this.sliderBorrow.noUiSlider.set(newValue.toNumber());
+          return;
+        }
+      }
+
+      if (value.isGreaterThan(this.borrowSliderMaxValue())) {
+        this.inputBorrowEl.classList.add("red-border");
+      } else {
+        // reset border color if it passes the check
+        this.inputBorrowEl.classList.remove("red-border");
+        // set slider value
+        this.setBorrowSliderValue(value);
+      }
+    }, 1250 );
+  }
+
+
+  /**
+   * Logic to trigger when user clicks confirm of asset-user supply
+   */
+  onAssetSupplyConfirmClick(): void {
+    let value = this.getInputSupplyValue().dp(2);
+
+    // check that supplied value is not greater than max
+    const max = this.supplySliderMaxValue();
+    if (value.isGreaterThan(max)) {
+      value = max;
+      this.setSupplySliderValue(value);
+      return;
+    }
+
+    const currentlySupplied = this.getUserSuppliedAssetBalance();
+
+    // calculate the difference
+    const supplyAmountDiff = Utils.subtract(value, currentlySupplied);
+
+    const after = value;
+    const amount = supplyAmountDiff.abs();
+    const risk = this.getCurrentDynamicRisk();
+
+    const asset = this.sIcxSelected ? Asset.getAdjustedAsset(CollateralAssetTag.sICX, this.asset) : this.asset;
+    if (supplyAmountDiff.isGreaterThan(Utils.ZERO)) {
+      this.modalService.showNewModal(ModalType.SUPPLY, new AssetAction(asset, currentlySupplied, after, amount, risk));
+    } else if (supplyAmountDiff.isLessThan(Utils.ZERO)) {
+      this.modalService.showNewModal(ModalType.WITHDRAW, new AssetAction(asset, currentlySupplied, after, amount, risk));
     } else {
-      return this.asset.tag;
+      this.notificationService.showNewNotification("No change in supplied value.");
+      return;
     }
   }
+
+  /**
+   * Logic to trigger when user clicks confirm of asset-user borrow
+   */
+  onAssetBorrowConfirmClick(): void {
+    let value = this.getInputBorrowValue().dp(2);
+
+    // check that borrowed value is not greater than max
+    const max = this.borrowSliderMaxValue();
+    if (value.isGreaterThan(max)) {
+      value = max;
+      this.setBorrowSliderValue(value);
+      return;
+    }
+
+    const currentlyBorrowed = this.userBorrowedAssetBalance;
+
+    // calculate the difference and fix to 2 decimals
+    const borrowAmountDiff = Utils.subtract(value, currentlyBorrowed);
+    const after = value;
+    let amount = borrowAmountDiff.abs();
+    const risk = this.getCurrentDynamicRisk();
+
+    if (borrowAmountDiff.isGreaterThan(Utils.ZERO)) {
+      this.modalService.showNewModal(ModalType.BORROW, new AssetAction(this.asset, currentlyBorrowed , after, amount, risk));
+    } else if (borrowAmountDiff.isLessThan(Utils.ZERO)) {
+      // full repayment
+      if (after.isZero()) {
+        amount = currentlyBorrowed;
+        log.debug("FULL REPAYMENT currentlyBorrowed = " + currentlyBorrowed.toString());
+      }
+
+      this.modalService.showNewModal(ModalType.REPAY, new AssetAction(this.asset, currentlyBorrowed , after, amount, risk));
+    }  else {
+      this.notificationService.showNewNotification("No change in borrowed value.");
+      return;
+    }
+  }
+
 }

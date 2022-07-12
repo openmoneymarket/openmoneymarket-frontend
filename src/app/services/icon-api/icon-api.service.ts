@@ -3,7 +3,7 @@ import {Utils} from "../../common/utils";
 import IconService, {IconBuilder, IconAmount, IconConverter} from 'icon-sdk-js';
 const { CallBuilder, CallTransactionBuilder, IcxTransactionBuilder,  } = IconBuilder;
 import {environment} from "../../../environments/environment";
-import {IconTransactionType} from "../../models/IconTransactionType";
+import {IconTransactionType} from "../../models/enums/IconTransactionType";
 import log from "loglevel";
 import {HttpClient} from "@angular/common/http";
 import BigNumber from "bignumber.js";

@@ -7,7 +7,7 @@ import {BigNumber} from "bignumber.js";
 })
 export class RoundDown2DecPipe implements PipeTransform {
 
-  transform(value: BigNumber | string | undefined): string {
+  transform(value: BigNumber | number | string | undefined): string {
     return Utils.roundDownTo2Decimals(value);
   }
 

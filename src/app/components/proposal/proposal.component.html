@@ -14,7 +14,8 @@
       <!-- Container -->
       <div class="grid proposal-overview-metadata">
         <div class="grid-cell">
-          <span class="label"><img [src]="activeProposal?.getStatusImgSrc()">{{activeProposal?.getProposalState(reloaderService)}}</span> <span class="label"><img src="assets/img/icon/chart.svg">{{to2DecimalRoundedOffPercentString(activeProposal?.getTotalVotePercentage(), true)}} voted</span> <span class="label">
+          <span class="label"><img [src]="activeProposal?.getStatusImgSrc()">{{activeProposal?.getProposalState(currentTimestampMicro)}}</span> <span class="label">
+          <img src="assets/img/icon/chart.svg">{{to2DecimalRndOffPercString(activeProposal?.getTotalVotePercentage(), true)}} voted</span> <span class="label">
         <img src="assets/img/icon/users.svg">{{totalVoters()}} voters</span>
         </div>
       </div>
@@ -23,7 +24,7 @@
         <!-- Approve -->
         <div class="grid">
           <div class="grid-cell">
-            <p class="text-bold">Approve <span class="label">{{to2DecimalRoundedOffPercentString(activeProposal?.getApprovedPercentage(), true)}} ({{to2DecimalRoundedOffPercentString(activeProposal?.majority, true)}} required)</span></p>
+            <p class="text-bold">Approve <span class="label">{{to2DecimalRndOffPercString(activeProposal?.getApprovedPercentage(), true)}} ({{to2DecimalRndOffPercString(activeProposal?.majority, true)}} required)</span></p>
             <div id="slider-approve" disabled="" class="noUi-target noUi-ltr noUi-horizontal noUi-txt-dir-ltr">
               <div class="noUi-base">
                 <div class="noUi-connects">
@@ -45,7 +46,7 @@
         <!-- Reject -->
         <div class="grid" style="margin-top: 15px;">
           <div class="grid-cell">
-            <p class="text-bold">Reject <span class="label">{{to2DecimalRoundedOffPercentString(activeProposal?.getRejectedPercentage(), true)}}</span></p>
+            <p class="text-bold">Reject <span class="label">{{to2DecimalRndOffPercString(activeProposal?.getRejectedPercentage(), true)}}</span></p>
             <div id="slider-reject" disabled="" class="noUi-target noUi-ltr noUi-horizontal noUi-txt-dir-ltr">
               <div class="noUi-base">
                 <div class="noUi-connects">
@@ -71,7 +72,7 @@
             <!-- Approve -->
             <div class="grid">
               <div class="grid-cell">
-                <p class="text-bold">Approve <span class="label">{{to2DecimalRoundedOffPercentString(activeProposal?.getApprovedPercentage(), true)}} ({{to2DecimalRoundedOffPercentString(activeProposal?.majority, true)}} required)</span></p>
+                <p class="text-bold">Approve <span class="label">{{to2DecimalRndOffPercString(activeProposal?.getApprovedPercentage(), true)}} ({{to2DecimalRndOffPercString(activeProposal?.majority, true)}} required)</span></p>
                 <div id="slider-approve" disabled="" class="noUi-target noUi-ltr noUi-horizontal noUi-txt-dir-ltr"><div class="noUi-base">
                   <div class="noUi-connects"><div class="noUi-connect" [ngStyle]="{'transform': 'translate(0%) scale(' + activeProposal?.getApprovedPercentage() + ', 1)'}"></div></div>
                   <div class="noUi-origin" style="transform: translate(-208.955%); z-index: 4;">
@@ -84,7 +85,7 @@
             <!-- Reject -->
             <div class="grid" style="margin-top: 15px;">
               <div class="grid-cell">
-                <p class="text-bold">Reject <span class="label">{{to2DecimalRoundedOffPercentString(activeProposal?.getRejectedPercentage(), true)}}</span></p>
+                <p class="text-bold">Reject <span class="label">{{to2DecimalRndOffPercString(activeProposal?.getRejectedPercentage(), true)}}</span></p>
                 <div id="slider-reject" disabled="" class="noUi-target noUi-ltr noUi-horizontal noUi-txt-dir-ltr"><div class="noUi-base">
                   <div class="noUi-connects"><div class="noUi-connect" [ngStyle]="{'transform': 'translate(0%) scale(' + activeProposal?.getRejectedPercentage() + ', 1)'}"></div></div>
                   <div class="noUi-origin" style="transform: translate(-791.045%); z-index: 4;"><div class="noUi-handle noUi-handle-lower" data-handle="0" tabindex="0" role="slider" aria-orientation="horizontal" aria-valuemin="0.0" aria-valuemax="67.0" aria-valuenow="14.0" aria-valuetext="14.00">
@@ -99,7 +100,7 @@
               </div>
               <div class="grid-cell">
                 <h3>You rejected <a href="javascript:void(0);" (click)="onChangeVoteClick()">Change vote</a></h3>
-                <p>Voting weight: {{getUsersVotingWeightOnProposal() | roundOff2Dec | usFormat}} OMM</p>
+                <p>Voting weight: {{getUsersVotingWeightOnProposal() | roundOff2Dec | usFormat}} bOMM</p>
               </div>
             </div>
           </div>
@@ -110,7 +111,7 @@
               </div>
               <div class="grid-cell">
                 <h3>You approved <a href="javascript:void(0);" (click)="onChangeVoteClick()">Change vote</a></h3>
-                <p>Voting weight: {{getUsersVotingWeightOnProposal() | roundOff2Dec | usFormat}} OMM</p>
+                <p>Voting weight: {{getUsersVotingWeightOnProposal() | roundOff2Dec | usFormat}} bOMM</p>
               </div>
             </div>
           </div>

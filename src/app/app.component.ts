@@ -4,7 +4,6 @@ import {DataLoaderService} from './services/data-loader/data-loader.service';
 import {ModalService} from "./services/modal/modal.service";
 import {PersistenceService} from "./services/persistence/persistence.service";
 import {BaseClass} from "./components/base-class";
-import {ReloaderService} from "./services/reloader/reloader.service";
 import {WalletType} from "./models/wallets/Wallet";
 import {LocalStorageService, WalletLogin} from "./services/local-storage/local-storage.service";
 import {IconexWallet} from "./models/wallets/IconexWallet";
@@ -24,20 +23,27 @@ export class AppComponent extends BaseClass implements OnInit, OnDestroy {
 
   title = 'Open money market';
 
-  private attachedListener: boolean;
+  private attachedListener = false;
 
   constructor(private iconexApiService: IconexApiService,
               private dataLoaderService: DataLoaderService,
               private loginService: LoginService,
               private modalService: ModalService,
               public persistenceService: PersistenceService,
-              private reloaderService: ReloaderService,
               private localStorageService: LocalStorageService) {
     super(persistenceService);
 
-    // register Iconex handler
-    window.addEventListener("ICONEX_RELAY_RESPONSE", (e: any) => this.iconexApiService.iconexEventHandler(e));
-    this.attachedListener = true;
+    window.addEventListener("load", () => {
+      // register Iconex handler
+      window.addEventListener("ICONEX_RELAY_RESPONSE", (e: any) => this.iconexApiService.iconexEventHandler(e));
+      this.attachedListener = true;
+
+      // Trigger has account if extension flag is false to check if user has Iconex/Hana extension
+      if (!this.iconexApiService.hasWalletExtension) {
+        log.debug("Dispatching hasAccount because extension = false");
+        this.iconexApiService.hasAccount();
+      }
+    });
 
     // load all SCORE addresses
     dataLoaderService.loadAllScoreAddresses().then(() => {
@@ -60,6 +66,11 @@ export class AppComponent extends BaseClass implements OnInit, OnDestroy {
       if ($(e.target).is("#time-selector") === false && $(e.target).is("#time-selector-dropdown") === false) {
         $("#time-selector").removeClass("active");
         $(".time-selector-content").removeClass("active");
+      }
+
+      if ($(e.target).is(".dropdown.time-selector") === false && $(e.target).is(".dropdown-content.locked-selector") === false
+        && $(e.target).is(".animation-underline.locked-selector") === false) {
+        $(".dropdown-content.locked-selector").removeClass("active");
       }
     });
   }
@@ -95,22 +106,18 @@ export class AppComponent extends BaseClass implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (!this.attachedListener){
-      window.addEventListener("ICONEX_RELAY_RESPONSE", (e: any) => this.iconexApiService.iconexEventHandler(e));
-    }
+
   }
 
   ngOnDestroy(): void {
     if (this.attachedListener){
       window.removeEventListener("ICONEX_RELAY_RESPONSE", (e: any) => this.iconexApiService.iconexEventHandler(e));
-      this.attachedListener = true;
+      this.attachedListener = false;
     }
   }
 
   onOverlayClick(): void {
     this.modalService.hideActiveModal();
   }
-
-
 
 }

@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import log from "loglevel";
 import BigNumber from "bignumber.js";
 import {DEFAULT_SLIDER_MAX} from "../../common/constants";
 

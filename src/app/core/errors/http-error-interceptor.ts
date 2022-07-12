@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 import {HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest} from "@angular/common/http";
-import {Observable, throwError} from "rxjs";
+import {Observable} from "rxjs";
 import {catchError, finalize} from "rxjs/operators";
 import {OmmError} from "./OmmError";
 

@@ -1,14 +1,12 @@
 import {Injectable} from '@angular/core';
 import {IconApiService} from "../icon-api/icon-api.service";
 import {PersistenceService} from "../persistence/persistence.service";
-import {IconexApiService} from "../iconex-api/iconex-api.service";
 import {IconAmount, IconConverter} from "icon-sdk-js";
 import {ScoreMethodNames} from "../../common/score-method-names";
-import {IconTransactionType} from "../../models/IconTransactionType";
+import {IconTransactionType} from "../../models/enums/IconTransactionType";
 import {CheckerService} from "../checker/checker.service";
 import log from "loglevel";
-import {AssetTag} from "../../models/Asset";
-import {BridgeWidgetService} from "../bridge-widget/bridge-widget.service";
+import {AssetTag} from "../../models/classes/Asset";
 import {TransactionDispatcherService} from "../transaction-dispatcher/transaction-dispatcher.service";
 import BigNumber from "bignumber.js";
 
@@ -19,9 +17,7 @@ export class BorrowService {
 
   constructor(private iconApiService: IconApiService,
               private persistenceService: PersistenceService,
-              private iconexApiService: IconexApiService,
               private checkerService: CheckerService,
-              private bridgeWidgetService: BridgeWidgetService,
               private transactionDispatcherService: TransactionDispatcherService) {
   }
 

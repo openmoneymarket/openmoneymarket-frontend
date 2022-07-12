@@ -1,141 +1,67 @@
 <main class="vote">
   <!-- Vote overview -->
-  <section id="vote-overview" class="{{voteOverviewEditMode ? 'adjust' : ''}}">
-    <h2>Overview</h2>
-    <!-- Container -->
-    <div class="grid panel">
-      <!-- Omm stake -->
-      <div id="omm-stake" class="grid-cell">
-        <!-- Title -->
-        <h3>Omm stake</h3>
-
-        <!-- Stake slider -->
-        <div class="slider-stake" disabled #stkSlider [ngStyle]="hideElement(!userLoggedIn() || !userHasOmmTokens() || !userHasMoreThanOneOmmToken())"></div>
-
-        <!-- Message (If user has no Omm tokens) -->
-        <p class="label text-center grid-cell-center" style="margin-top: 25px" [ngStyle]="hideElement(!userLoggedIn() || userHasOmmTokens())">You have no Omm Tokens.<br>Supply or borrow to earn them.</p>
-
-        <!-- Message (If user has less than 1 OMM token) -->
-        <p class="label text-center grid-cell-center" style="margin-top: 25px" [ngStyle]="hideElement(!userLoggedIn() || !userHasOmmTokens() || userHasMoreThanOneOmmToken())">You need at least 1 Omm Token in your wallet before you can stake.</p>
-
-        <!-- Message (If not logged in) -->
-        <div id="message-vote-logged-out" class="grid" [ngStyle]="hideElement(userLoggedIn())">
-          <div class="grid-cell">
-            <p>Sign in to stake Omm Tokens.</p>
-            <a href="javascript:void(0);" class="button" (click)="onSignInClick()">Sign in</a>
-          </div>
-        </div>
-
-        <!-- Stake actions -->
-        <div class="grid" [ngStyle]="hideElement(!userLoggedIn() || !userHasOmmTokens() || !userHasMoreThanOneOmmToken())">
-          <div class="grid-cell text-center">
-
-            <!-- Actions to show by default -->
-            <div *ngIf="!userHasStaked()" class="grid grid-center stake-omm-actions-default actions-default">
-              <div class="grid-cell text-center">
-                <a href="javascript:void(0);" class="button" id="stake-adjust-omm" (click)="onStakeAdjustClick()">Stake Omm Tokens</a>
-              </div>
-            </div>
-
-            <!-- Actions to show if already staked -->
-            <div *ngIf="userHasStaked() && !isMaxStaked()" class="grid grid-center stake-omm-actions-default actions-default">
-              <div class="grid-cell text-center">
-                <a href="javascript:void(0);" class="button" (click)="onStakeAdjustClick()">Adjust stake</a>
-              </div>
-            </div>
-
-            <!-- Actions to show if max staked -->
-            <div *ngIf="userHasStaked() && isMaxStaked()" class="grid grid-center actions-default">
-              <div class="grid-cell text-center">
-                <a href="javascript:void(0);" class="button" (click)="onStakeAdjustClick()">Unstake Omm Tokens</a>
-              </div>
-            </div>
-
-            <!-- Actions to show when adjust class is active -->
-
-            <!-- Actions to show when adjust class is active -->
-            <div class="grid grid-center stake-omm-actions-adjust {{voteOverviewEditMode ? '' : 'hide'}}">
-              <div class="grid-cell text-right">
-                <a id="stake-omm-actions-adjust-cancel" href="javascript:void(0);" (click)="onStakeAdjustCancelClick()" class="cancel">Cancel</a>
-              </div>
-              <div class="grid-cell text-left">
-                <a href="javascript:void(0);" (click)="onConfirmStakeClick()" class="button margin-top-0">Confirm</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Stake -->
-          <div class="grid-cell text-center">
-            <dl class="metadata">
-              <dt>Your stake</dt>
-              <dd><input id="stake-input" type="text" name="omm-stake" class="{{voteOverviewEditMode ? 'active' : 'hide'}}" #stakeInput (input)="onInputStakeOmmChange()"><span
-                class="value-omm-stake-amount {{voteOverviewEditMode ? 'hide' : ''}}">{{userOmmTokenBalanceDetails?.stakedBalance | usFormat}}</span> / {{getYourStakeMax() | usFormat}} OMM</dd>
-            </dl>
-
-            <!-- Message (If un-staking) -->
-            <p *ngIf="isUnstaking()" class="label" style="margin-top: 5px;">{{this.persistenceService.getUserUnstakingOmmBalance0Rounded() | usFormat}} OMM unstaking. <a
-              href="javascript:void(0);" (click)="onCancelUnstakingClick()">Cancel</a></p>
-          </div>
-        </div>
+  <section class="boosted-omm">
+    <div class="grid">
+      <div class="grid-cell">
+        <h2>Overview</h2>
       </div>
 
-      <!-- Voting power -->
-      <div id="vote-power" class="grid-cell">
-        <div id="vote-conversion" class="grid-cell border-bottom text-center">
-          <dl class="metadata">
-            <dt>Voting power</dt>
-            <dd>1 OMM = {{this.calculationsService.votingPower() | usFormat}} ICX</dd>
-          </dl>
-        </div>
+      <div class="grid-cell">
+
+      </div>
+    </div>
+
+    <!-- Panel -->
+    <div class="grid panel">
+      <div class="grid-cell">
+        <app-omm-locking style="display: contents"
+                         [type]="getOmmLckCmpType()"
+                         (lockUntilDateClicked)="onLockUntilDateClick()"
+                         (sliderValueUpdate)="handleLockSliderValueUpdate($event)"
+                         (lockAdjustCancelClicked)="handleLockAdjustCancelClicked()"
+        ></app-omm-locking>
+
         <div class="grid">
-          <div class="grid-cell">
-            <dl class="metadata text-center">
-              <dt>Your voting power</dt>
-              <dd><span class="value-icx-stake-amount">{{userLoggedIn() && userVotingPower().isGreaterThan(ZERO) ?
-                (userVotingPower() | roundDown2Dec | usFormat) : "-"}}</span>{{userVotingPower().isGreaterThan(ZERO) ? " ICX" : ""}}</dd>
-            </dl>
-          </div>
-          <div class="grid-cell">
-            <dl class="metadata text-center">
-              <dt>Omm's voting power</dt>
-              <dd>{{ommVotingPower() | roundDown2Dec | usFormat}} ICX</dd>
-            </dl>
+          <div class="grid-cell boost-increase border-top">
+            <div class="grid">
+              <div class="grid-cell border-right">
+                <dl class="metadata">
+                  <dt>Voting power</dt>
+                  <dd #votPwrPerIcx>1 bOMM = {{votingPower | usFormat}} ICX</dd>
+                </dl>
+              </div>
+              <div class="grid-cell border-right">
+                <dl class="metadata">
+                  <dt>Your voting power</dt>
+                  <dd class="value-voting-power" #yourVotPow>{{userLoggedIn() && yourVotingPower.isGreaterThan(ZERO) ?
+                    (yourVotingPower | roundDown2Dec | usFormat) : "-"}} {{yourVotingPower.isGreaterThan(ZERO) ? " ICX" : ""}}</dd>
+                </dl>
+              </div>
+              <div class="grid-cell">
+                <dl class="metadata">
+                  <dt>Total voting power <span class="total-bomm-tooltip tooltip">
+                    <span class="tooltip-item"><img src="assets/img/icon/question.svg" class="tooltip-icon"></span>
+                    <p class="total-bomm-tooltip-content tooltip-content">{{totalbOmm() | usFormat}} bOMM</p>
+                  </span></dt>
+                  <dd class="value-voting-power-total">{{ommVotingPower | roundDown2Dec | usFormat}} ICX</dd>
+                </dl>
+              </div>
+            </div>
           </div>
         </div>
+
       </div>
     </div>
   </section>
 
   <!-- Proposals -->
-  <section id="proposal-cards">
-    <!-- Title -->
-    <div class="grid grid-center">
-      <div class="grid-cell">
-        <h2>Latest proposals</h2><span class="label"><a href="javascript:void(0);" routerLink="/vote/all-proposals" class="animation-underline">View all</a></span>
-      </div>
-      <div class="grid-cell">
-        <a *ngIf="userLoggedIn()" href="javascript:void(0);" routerLink="/vote/new-proposal" class="button">New proposal</a>
-      </div>
-    </div>
-
-    <div class="grid cards">
-      <ng-container *ngFor="let proposal of getLatestProposals(); last as isLast;">
-        <a href="javascript:void(0);" routerLink="/vote/proposal" class="grid-cell panel" (click)="onProposalClick(proposal)">
-          <h3>{{proposal.name}}</h3>
-          <p>{{proposal.getShortDescription()}}</p>
-
-          <div class="grid proposal-metadata border-top">
-            <img class="time" src="assets/img/icon/clock.svg"><span class="label">{{proposal.getProposalState(reloaderService, true)}}</span>
-            <div class="green-square"></div><span class="label">{{to0DecimalRoundedDownPercentString(proposal.getApprovedPercentage(), true)}}</span>
-            <div class="purple-square"></div><span class="label">{{to0DecimalRoundedDownPercentString(proposal.getRejectedPercentage(), true)}}</span>
-          </div>
-        </a>
-      </ng-container>
-    </div>
-  </section>
+  <app-latest-proposals style="display: contents"
+                        [latestProposals]="latestProposals"
+  >
+  </app-latest-proposals>
 
   <!-- Your votes -->
-  <section id="your-votes" class="{{this.yourVotesEditMode ? 'adjust' : ''}}" [ngStyle]="hideElement(!userLoggedIn() || !userHasStaked())">
+  <section id="your-votes" class="{{this.yourVotesEditMode ? 'adjust' : ''}}" [ngStyle]="hideElement(!userLoggedIn() || !userHasLockedOmm())">
     <!-- Title -->
     <div class="grid grid-center">
       <div class="grid-cell">
@@ -219,7 +145,7 @@
     <!-- P-Rep list -->
     <div class="grid" *ngIf="searchedPrepList">
       <div class="grid-cell">
-        <table class="list p-reps {{yourVotesEditMode || (userHasStaked() && !listIsNotNullOrEmpty(yourVotesPrepList)) ? 'adjust' : ''}}">
+        <table class="list p-reps {{yourVotesEditMode || (userHasLockedOmm() && !listIsNotNullOrEmpty(yourVotesPrepList)) ? 'adjust' : ''}}">
           <thead>
           <tr>
             <th>Rank</th>
@@ -256,7 +182,7 @@
                 </td>
                 <td>${{getPrepsUSDReward(prep, i) | roundOff0Dec | usFormat}}<br>
                   <span class="label">{{getPrepsIcxReward(prep, i) | roundOff0Dec | usFormat}} ICX</span></td>
-                <td>{{to2DecimalRoundedOffPercentString(getPowerPercent(prep), true)}}<br>
+                <td>{{getPowerPercent(prep) | roundOff2DecPercent: true}}<br>
                   <span class="label">{{prep!.power  | roundOff0Dec | usFormat | toZeroIfDash}}</span></td>
               </tr>
               <!-- Spacer -->

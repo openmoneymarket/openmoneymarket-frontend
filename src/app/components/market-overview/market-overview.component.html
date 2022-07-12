@@ -1,0 +1,44 @@
+<div id="market-overview-content" class="grid panel" [ngStyle]="hideElement(!marketOverviewActive)">
+  <!-- Supplied -->
+  <div class="grid-cell border-right">
+    <div class="grid">
+      <!-- Total supplied -->
+      <div class="grid-cell text-center">
+        <dl class="metadata">
+          <dt>Total supplied</dt>
+          <dd>{{totalSuppliedUSD | roundOff0Dec | dollarUsLocale}}</dd>
+        </dl>
+      </div>
+
+      <!-- Total supply APY -->
+      <div class="grid-cell text-center">
+        <dl class="metadata">
+          <dt>Avg supply APY</dt>
+          <dd class="text-green">{{getTotalAvgSupplyApy() | roundOff2DecPercent}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- Borrowed -->
+  <div class="grid-cell">
+    <div class="grid">
+      <!-- Total borrowed -->
+      <div class="grid-cell text-center">
+        <dl class="metadata">
+          <dt>Total borrowed</dt>
+          <dd>{{totalBorrowedUSD | roundOff0Dec | dollarUsLocale}}</dd>
+        </dl>
+      </div>
+
+      <!-- Total borrow APY -->
+      <div class="grid-cell text-center">
+        <dl class="metadata">
+          <dt>Avg borrow APR</dt>
+          <!-- Borrow APY -->
+          <dd [ngClass]="avgBorrowAprClass()">{{getTotalAvgBorrowApy() | abs | roundOff2DecPercent}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>

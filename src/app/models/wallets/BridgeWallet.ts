@@ -1,7 +1,7 @@
 // @ts-ignore
 import {BridgeService} from "../../../../build/bridge.bundle";
 import {Wallet, WalletType} from "./Wallet";
-import {AssetTag} from "../Asset";
+import {AssetTag} from "../classes/Asset";
 import BigNumber from "bignumber.js";
 
 export class BridgeWallet extends Wallet {

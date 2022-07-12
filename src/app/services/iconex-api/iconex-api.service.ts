@@ -1,20 +1,14 @@
 import { Injectable } from "@angular/core";
 import {IconexWallet} from "../../models/wallets/IconexWallet";
-import {IconApiService} from "../icon-api/icon-api.service";
-import {PersistenceService} from "../persistence/persistence.service";
 import {IconConverter } from "icon-sdk-js";
 import {TransactionResultService} from '../transaction-result/transaction-result.service';
-import {ScoreService} from "../score/score.service";
-import {DataLoaderService} from "../data-loader/data-loader.service";
 import log from "loglevel";
 import {OmmError} from "../../core/errors/OmmError";
 import {NotificationService} from "../notification/notification.service";
 import {LoginService} from "../login/login.service";
-import {IconexId} from "../../models/IconexId";
+import {IconexId} from "../../models/enums/IconexId";
 import {ModalService} from "../modal/modal.service";
-import {ModalType} from "../../models/ModalType";
-import {ModalAction} from "../../models/ModalAction";
-import {LocalStorageService} from "../local-storage/local-storage.service";
+import {DeviceDetectorService} from "ngx-device-detector";
 
 @Injectable({
   providedIn: "root"
@@ -25,15 +19,17 @@ export class IconexApiService {
   * https://www.icondev.io/docs/chrome-extension-connect
   */
 
-  constructor(private iconApiService: IconApiService,
-              private persistenceService: PersistenceService,
-              private transactionResultService: TransactionResultService,
-              private scoreService: ScoreService,
-              private dataLoaderService: DataLoaderService,
+  hasWalletExtension;
+
+  constructor(private transactionResultService: TransactionResultService,
               private loginService: LoginService,
               private notificationService: NotificationService,
               private modalService: ModalService,
-              private localStorageService: LocalStorageService) { }
+              private deviceService: DeviceDetectorService) {
+
+    // on mobile default to true for wallet extension
+    this.hasWalletExtension = this.deviceService.isMobile();
+  }
 
   public iconexEventHandler( e: any): void {
     const {type, payload} = e.detail;
@@ -42,7 +38,13 @@ export class IconexApiService {
 
     switch (type) {
       case "RESPONSE_HAS_ACCOUNT": {
-        if (payload.hasAccount) { this.requestAddress(); }
+        if (payload.hasAccount) {
+          if (!this.hasWalletExtension) {
+            this.hasWalletExtension = true;
+          } else {
+            this.requestAddress();
+          }
+        }
         else {
           this.notificationService.showNewNotification("Wallet does not exist. Please log in to Iconex and try again.");
         }

@@ -1,1 +1,0 @@
-{"version":3,"file":"Account.d.ts","sourceRoot":"","sources":["../../../../src/lib/models/PrimeTrust/Account.ts"],"names":[],"mappings":"AAAA,OAAO,EAAC,0BAA0B,EAAC,MAAM,8BAA8B,CAAC;AAExE,qBAAa,OAAO;IAEhB,IAAI,EAAE,MAAM,CAAc;IAC1B,UAAU,EAAE,0BAA0B,CAAC;gBAG3B,UAAU,EAAE,0BAA0B;CAGrD"}

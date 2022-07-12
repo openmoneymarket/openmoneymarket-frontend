@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import {PersistenceService} from "../persistence/persistence.service";
 import {StateChangeService} from "../state-change/state-change.service";
-import {BridgeWidgetAction} from "../../models/BridgeWidgetAction";
+import {BridgeWidgetAction} from "../../models/Interfaces/BridgeWidgetAction";
 import {Utils} from "../../common/utils";
 import {LocalStorageService} from "../local-storage/local-storage.service";
 

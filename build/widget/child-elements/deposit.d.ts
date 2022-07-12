@@ -3,9 +3,18 @@ import { User } from '../../lib/models/User/User';
 declare class DepositElement extends LitElement {
     constructor();
     static styles: any[];
-    stablyDepositUrl: string;
     user: User | undefined;
+    iframeUrl: string;
+    landingView: HTMLElement | null | undefined;
+    stablyIframeView: HTMLElement | null | undefined;
+    activeView: HTMLElement | null | undefined;
     private backToHomeViewEvent;
+    private showBlockchainAddress;
+    protected firstUpdated(_changedProperties: Map<string | number | symbol, unknown>): void;
+    protected updated(_changedProperties: Map<string, any>): void;
+    private showModalView;
+    private setActiveModalView;
+    private handleIframeClose;
     protected render(): unknown;
 }
 declare global {

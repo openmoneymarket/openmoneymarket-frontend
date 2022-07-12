@@ -11,8 +11,7 @@ import {IconApiService} from "../icon-api/icon-api.service";
 import {IconConverter} from "icon-sdk-js";
 import {TransactionResultService} from "../transaction-result/transaction-result.service";
 import {LocalStorageService} from "../local-storage/local-storage.service";
-import {IconexId} from "../../models/IconexId";
-import log from "loglevel";
+import {IconexId} from "../../models/enums/IconexId";
 import BigNumber from "bignumber.js";
 
 @Injectable({
@@ -33,7 +32,7 @@ export class TransactionDispatcherService {
   /**
    * Method that dispatches the built tx to Icon network (through Iconex, Bridge or directly) and triggers the proper notification
    */
-  async dispatchTransaction(tx: any, notificationMessage: string): Promise<void> {
+  async dispatchTransaction(tx: any, notificationMessage: string, iconexId = IconexId.SHOW_MESSAGE_HIDE_MODAL): Promise<void> {
     try {
       const estimateTx = IconConverter.toRawTransaction(tx);
       delete estimateTx.stepLimit;
@@ -45,8 +44,8 @@ export class TransactionDispatcherService {
       }
 
       if (this.persistenceService.activeWallet instanceof IconexWallet) {
-        this.iconexApiService.dispatchSendTransactionEvent(tx, IconexId.SHOW_MESSAGE_HIDE_MODAL);
         this.notificationService.setNotificationToShow(notificationMessage);
+        this.iconexApiService.dispatchSendTransactionEvent(tx, iconexId);
       } else if (this.persistenceService.activeWallet instanceof BridgeWallet) {
         this.bridgeWidgetService.sendTransaction(tx);
         this.notificationService.showNewNotification(notificationMessage);

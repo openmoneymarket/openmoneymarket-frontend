@@ -1,35 +1,36 @@
 import {Injectable} from '@angular/core';
 import {IconApiService} from '../icon-api/icon-api.service';
 import {ScoreMethodNames} from '../../common/score-method-names';
-import {IconTransactionType} from '../../models/IconTransactionType';
+import {IconTransactionType} from '../../models/enums/IconTransactionType';
 import {PersistenceService} from '../persistence/persistence.service';
 import {environment} from '../../../environments/environment';
 import {Utils} from "../../common/utils";
 import {CheckerService} from "../checker/checker.service";
-import {AllAddresses} from "../../models/AllAddresses";
-import {UserAllReservesData, UserReserveData} from "../../models/UserReserveData";
-import {AllReservesData, ReserveData} from "../../models/AllReservesData";
-import {UserAccountData} from "../../models/UserAccountData";
-import {ReserveConfigData} from "../../models/ReserveConfigData";
+import {AllAddresses} from "../../models/classes/AllAddresses";
+import {UserAllReservesData, UserReserveData} from "../../models/classes/UserReserveData";
+import {AllReservesData, ReserveData} from "../../models/classes/AllReservesData";
+import {UserAccountData} from "../../models/classes/UserAccountData";
+import {ReserveConfigData} from "../../models/classes/ReserveConfigData";
 import {StateChangeService} from "../state-change/state-change.service";
-import {AssetTag, CollateralAssetTag} from "../../models/Asset";
+import {AssetTag, CollateralAssetTag} from "../../models/classes/Asset";
 import log from "loglevel";
-import {PrepList} from "../../models/Preps";
+import {PrepList} from "../../models/classes/Preps";
 import {Mapper} from "../../common/mapper";
 import {IconAmount, IconConverter} from "icon-sdk-js";
-import {YourPrepVote} from "../../models/YourPrepVote";
-import {DelegationPreference} from "../../models/DelegationPreference";
-import {UnstakeInfo} from "../../models/UnstakeInfo";
-import {DistributionPercentages} from "../../models/DistributionPercentages";
-import {PoolStats, PoolStatsInterface} from "../../models/PoolStats";
-import {TotalPoolInterface, UserPoolDataInterface} from "../../models/Poolnterfaces";
-import {PoolsDistPercentages} from "../../models/PoolsDistPercentages";
-import {AllAssetDistPercentages} from "../../models/AllAssetDisPercentages";
-import {DailyRewardsAllReservesPools} from "../../models/DailyRewardsAllReservesPools";
+import {YourPrepVote} from "../../models/classes/YourPrepVote";
+import {DelegationPreference} from "../../models/classes/DelegationPreference";
+import {UnstakeInfo} from "../../models/classes/UnstakeInfo";
+import {DistributionPercentages} from "../../models/classes/DistributionPercentages";
+import {PoolStats, PoolStatsInterface} from "../../models/classes/PoolStats";
+import {TotalPoolInterface, UserPoolDataInterface} from "../../models/Interfaces/Poolnterfaces";
+import {PoolsDistPercentages} from "../../models/classes/PoolsDistPercentages";
+import {AllAssetDistPercentages} from "../../models/classes/AllAssetDisPercentages";
+import {DailyRewardsAllReservesPools} from "../../models/classes/DailyRewardsAllReservesPools";
 import BigNumber from "bignumber.js";
-import {Vote, VotersCount} from "../../models/Vote";
-import {Proposal} from "../../models/Proposal";
-import {HttpClient} from "@angular/common/http";
+import {Vote, VotersCount} from "../../models/classes/Vote";
+import {Proposal} from "../../models/classes/Proposal";
+import {LockedOmm} from "../../models/classes/LockedOmm";
+import {ILockedOmm} from "../../models/Interfaces/ILockedOmm";
 
 
 @Injectable({
@@ -40,8 +41,7 @@ export class ScoreService {
   constructor(private iconApiService: IconApiService,
               private persistenceService: PersistenceService,
               private checkerService: CheckerService,
-              private stateChangeService: StateChangeService,
-              private http: HttpClient) {
+              private stateChangeService: StateChangeService) {
   }
 
   /**
@@ -67,7 +67,7 @@ export class ScoreService {
       _day: day,
     };
 
-    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.Rewards,
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.RewardWeightController,
       ScoreMethodNames.GET_TOKEN_DISTRIBUTION_PER_DAY, params, IconTransactionType.READ);
 
     const res = await this.iconApiService.iconService.call(tx).execute();
@@ -80,7 +80,7 @@ export class ScoreService {
   public async getRewardsDay(): Promise<string> {
     this.checkerService.checkAllAddressesLoaded();
 
-    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.Rewards,
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.RewardWeightController,
       ScoreMethodNames.GET_DAY, {}, IconTransactionType.READ);
 
     const res = await this.iconApiService.iconService.call(tx).execute();
@@ -427,7 +427,7 @@ export class ScoreService {
     this.checkerService.checkUserLoggedInAllAddressesAndReservesLoaded();
 
     const decimals = this.persistenceService.allReserves!.getReserveData(assetTag).decimals;
-    const method = assetTag === AssetTag.BALN ? ScoreMethodNames.AVAILABLE_BALANCE_OF : ScoreMethodNames.BALANCE;
+    const method = assetTag === AssetTag.BALN ? ScoreMethodNames.AVAILABLE_BALANCE_OF : ScoreMethodNames.BALANCE_OF;
 
     const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.collateralAddress(assetTag),
       method, {
@@ -549,12 +549,61 @@ export class ScoreService {
   public async getAllAssetsRewardDistributionPercentages(): Promise<AllAssetDistPercentages> {
     this.checkerService.checkAllAddressesLoaded();
 
-    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.Rewards,
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.RewardWeightController,
       ScoreMethodNames.GET_ALL_ASSET_DIST_PERCENTAGE, {}, IconTransactionType.READ);
 
     const res: AllAssetDistPercentages = await this.iconApiService.iconService.call(tx).execute();
 
     return Mapper.mapAllAssetDistPercentages(res);
+  }
+
+  /**
+   * @description Get users locked OMM token amount
+   * @return LockedOmm - Locked OMM tokens amount and end
+   */
+  public async getUserLockedOmmTokens(): Promise<LockedOmm> {
+    this.checkerService.checkUserLoggedInAndAllAddressesLoaded();
+
+    const params = { _owner: this.persistenceService.activeWallet!.address};
+
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.bOMM,
+      ScoreMethodNames.GET_LOCKED_OMM, params, IconTransactionType.READ);
+
+    const res: ILockedOmm = await this.iconApiService.iconService.call(tx).execute();
+
+    return Mapper.mapLockedOmm(res);
+  }
+
+  /**
+   * @description Get users bOMM balance
+   * @return BigNumber - Users bOMM balance as BigNumber
+   */
+  public async getUsersbOmmBalance(): Promise<BigNumber> {
+    this.checkerService.checkUserLoggedInAndAllAddressesLoaded();
+
+    const params = { _owner: this.persistenceService.activeWallet!.address};
+
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.bOMM,
+      ScoreMethodNames.BALANCE_OF, params, IconTransactionType.READ);
+
+    const res: string = await this.iconApiService.iconService.call(tx).execute();
+
+    return Utils.hexToNormalisedNumber(res);
+  }
+
+  /**
+   * @description Get total bOMM supply
+   * @return BigNumber - Total bOMM supply
+   */
+  public async getTotalbOmmSupply(): Promise<BigNumber> {
+    this.checkerService.checkAllAddressesLoaded();
+
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.bOMM,
+      ScoreMethodNames.TOTAL_SUPPLY, {}, IconTransactionType.READ);
+
+    const res: string = await this.iconApiService.iconService.call(tx).execute();
+
+    return Utils.hexToNormalisedNumber(res);
   }
 
   /**
@@ -564,7 +613,7 @@ export class ScoreService {
   public async getDailyRewardsDistributions(): Promise<DailyRewardsAllReservesPools> {
     this.checkerService.checkAllAddressesLoaded();
 
-    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.Rewards,
+    const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.RewardWeightController,
       ScoreMethodNames.GET_DAILY_REWARDS_RESERVES_POOLS, {}, IconTransactionType.READ);
 
     const res: DailyRewardsAllReservesPools = await this.iconApiService.iconService.call(tx).execute();
@@ -708,13 +757,13 @@ export class ScoreService {
    * @description Get vote definition criteria
    * @return  BigNumber - percentage representing vote definition criteria
    */
-  public async getVoteDefinitionCriteria(): Promise<BigNumber> {
+  public async getBoostedOmmVoteDefinitionCriteria(): Promise<BigNumber> {
     const tx = this.iconApiService.buildTransaction("",  this.persistenceService.allAddresses!.systemContract.Governance,
-      ScoreMethodNames.GET_OMM_VOTE_DEFINITION_CRITERION, {}, IconTransactionType.READ);
+      ScoreMethodNames.GET_BOOSTED_OMM_VOTE_DEFINITION_CRITERION, {}, IconTransactionType.READ);
 
     const res = await this.iconApiService.iconService.call(tx).execute();
 
-    log.debug(`getVoteDefinitionCriteria = ${res}`);
+    log.debug(`getBoostedOmmVoteDefinitionCriteria = ${res}`);
 
     return Utils.hexToNormalisedNumber(res);
   }
@@ -723,10 +772,10 @@ export class ScoreService {
    * @description Get users voting weight
    * @return  BigNumber - Users voting weight in OMM token number denomination
    */
-  public async getUserVotingWeight(timestamp?: BigNumber): Promise<BigNumber> {
+  public async getUserVotingWeight(proposalBlockHeight: BigNumber): Promise<BigNumber> {
 
     const params = {
-      _day: timestamp ? timestamp : Utils.timestampNowMicroseconds(),
+      _block: proposalBlockHeight,
       _address: this.persistenceService.activeWallet?.address
     };
 

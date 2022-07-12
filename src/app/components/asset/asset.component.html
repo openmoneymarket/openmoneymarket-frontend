@@ -5,29 +5,29 @@
 
   <!-- Your asset state -->
   <ng-container *ngIf="!isAllMarketViewActive() && !isAssetAvailable()">
-    <td><span class="value-supplied">{{this.toDollarUSLocaleString(this.persistenceService.getUserAssetReserve(asset.tag)?.currentOTokenBalanceUSD | roundOff2Dec)}}</span><br>
+    <td><span class="value-supplied">{{this.persistenceService.getUserAssetReserve(asset.tag)?.currentOTokenBalanceUSD | roundOff2Dec | dollarUsLocale}}</span><br>
       <span class="value-supplied label">{{getUserSuppliedAssetBalance() | usFormat}} {{supplyAssetTag()}}</span></td>
-    <td class="text-green">{{to2DecimalRoundedOffPercentString(getUserSupplyApy())}}</td> <!-- Supply APY-->
-    <td><span class="value-borrowed">{{this.toDollarUSLocaleString(getUserBorrowedAssetBalanceUSD() | roundOff2Dec)}}</span><br>
-      <span class="value-borrowed label">{{getUserBorrowedAssetBalance() | roundDown2Dec | usFormat}} {{getBorrowAssetTagAdjusted()}}</span></td>
-    <td class="{{isNegative(getUserBorrowApy()) ? 'text-purple' : 'text-green'}}">{{to2DecimalRoundedOffPercentString(makeAbsolute(getUserBorrowApy()))}}</td><!-- Borrow APY -->
+    <td class="text-green">{{getUserSupplyApy() | roundOff2DecPercent}}</td> <!-- Supply APY-->
+    <td><span class="value-borrowed">{{userBorrowedAssetBalanceUSD | roundOff2Dec | dollarUsLocale}}</span><br>
+      <span class="value-borrowed label">{{userBorrowedAssetBalance | roundDown2Dec | usFormat}} {{getBorrowAssetTagAdjusted()}}</span></td>
+    <td class="{{isNegative(getUserBorrowApy()) ? 'text-purple' : 'text-green'}}">{{makeAbsolute(getUserBorrowApy()) | roundOff2DecPercent}}</td><!-- Borrow APY -->
   </ng-container>
 
   <!-- Asset available state -->
   <ng-container *ngIf="!isAllMarketViewActive() && isAssetAvailable()">
-    <td colspan="2" class="text-right">{{this.toDollarUSLocaleString(getUserSuppliableBalanceUSD() | roundOff2Dec)}}
+    <td colspan="2" class="text-right">{{getUserSuppliableBalanceUSD() | roundOff2Dec | dollarUsLocale}}
       <br><span class="label">{{getUserSuppliableBalance() | roundOff2Dec | usFormat}} {{supplyAssetTag()}}</span></td>
-    <td colspan="2" class="text-right"><span class="text-green">{{to2DecimalRoundedOffPercentString(getUserSupplyApy())}} APY</span></td> <!-- Supply APY -->
+    <td colspan="2" class="text-right"><span class="text-green">{{getUserSupplyApy() | roundOff2DecPercent}} APY</span></td> <!-- Supply APY -->
   </ng-container>
 
   <!-- All markets state -->
   <ng-container *ngIf="isAllMarketViewActive()">
-    <td><span>{{this.toDollarUSLocaleString(this.persistenceService.getAssetReserveData(asset.tag)?.totalLiquidityUSD | roundOff2Dec)}}</span><br>
-      <span class="label">{{getTotalLiquidity() | roundOff2Dec | usFormat}} {{supplyAssetTag()}}</span></td>
-    <td class="text-green">{{to2DecimalRoundedOffPercentString(getMarketSupplyRate())}}</td> <!-- Supply APY -->
-    <td>{{this.toDollarUSLocaleString(this.persistenceService.getAssetReserveData(asset.tag)?.totalBorrowsUSD | roundOff2Dec)}}<br>
-      <span class="label">{{getTotalAssetBorrows() | roundOff2Dec | usFormat}} {{getBorrowAssetTagAdjusted()}}</span></td>
-    <td class="{{isNegative(getMarketBorrowRate()) ? 'text-purple' : 'text-green'}}">{{to2DecimalRoundedOffPercentString(makeAbsolute(getMarketBorrowRate()))}}</td> <!-- Borrow APY -->
+    <td><span>{{getTotalLiquidityUsd() | dollarUsLocale}}</span><br>
+      <span class="label">{{getTotalLiquidity() | usFormat}} {{supplyAssetTag()}}</span></td>
+    <td class="text-green">{{getMarketSupplyRate() | roundOff2DecPercent}}</td> <!-- Supply APY -->
+    <td>{{getTotalBorrowUsd() | dollarUsLocale}}<br>
+      <span class="label">{{getTotalAssetBorrows() | usFormat}} {{getBorrowAssetTagAdjusted()}}</span></td>
+    <td class="{{isNegative(getMarketBorrowRate()) ? 'text-purple' : 'text-green'}}">{{makeAbsolute(getMarketBorrowRate()) | roundOff2DecPercent}}</td> <!-- Borrow APY -->
   </ng-container>
 
 </tr>
@@ -58,7 +58,7 @@
 
             </div>
             <div class="grid-cell text-right">
-              <p class="supply-apy" #suppApyEl>{{to2DecimalRoundedOffPercentString(getMarketSupplyRate())}} APY</p>
+              <p class="supply-apy" #suppApyEl>{{getSupplyRateForActiveMarket() | roundOff2DecPercent}} APY</p>
             </div>
           </div>
 
@@ -66,7 +66,7 @@
           <div class="supply-allow" #supplyAllow>
 
             <!-- Supply APY history chart -->
-            <div class="chart-wrapper" (resized)="onSuppChartResize()" [ngStyle]="hideElement(_ommApyChecked  || isAssetOmm())" #suppChartWrapper>
+            <div class="chart-wrapper" (resized)="onSuppChartResize()" [ngStyle]="hideElement(ommApyChecked  || isAssetOmm())" #suppChartWrapper>
               <div class="chart-apy" #suppHistChart></div>
             </div>
 
@@ -102,13 +102,13 @@
               <div class="grid-cell">
                 <dl class="metadata">
                   <dt>Daily interest</dt>
-                  <dd class="value-supply-interest" #suppInterest>+ 0 </dd>
+                  <dd class="value-supply-interest" #suppInterest>0 </dd>
                 </dl>
               </div>
               <div class="grid-cell">
                 <dl class="metadata">
                   <dt>Daily rewards</dt>
-                  <dd class="value-supply-rewards" #suppRewards>+ ?? OMM</dd>
+                  <dd class="value-supply-rewards" #suppRewards>0 OMM</dd>
                 </dl>
               </div>
             </div>
@@ -165,7 +165,7 @@
               </span>
             </div>
             <div class="grid-cell text-right" [ngStyle]="hideElement(isAssetOmm())">
-              <p class="{{isNegative(getMarketBorrowRate()) ? 'borrow-apy':'borrow-apy text-green'}}" #borrowAprEl>{{to2DecimalRoundedOffPercentString(makeAbsolute(getMarketBorrowRate()))}} APR</p>
+              <p class="{{isNegative(getBorrowRateForActiveMarket()) ? 'borrow-apy':'borrow-apy text-green'}}" #borrowAprEl>{{makeAbsolute(getBorrowRateForActiveMarket()) | roundOff2DecPercent}} APR</p>
             </div>
           </div>
 
@@ -178,7 +178,7 @@
             </div>
 
             <!-- Chart line 2 -->
-            <div class="chart-wrapper" [ngStyle]="hideElement(_ommApyChecked || isAssetOmm())" #borrChartWrapper>
+            <div class="chart-wrapper" [ngStyle]="hideElement(ommApyChecked || isAssetOmm())" #borrChartWrapper>
               <div class="chart-apy" #borrHistChart></div>
             </div>
 
@@ -215,13 +215,13 @@
               <div class="grid-cell">
                 <dl class="metadata">
                   <dt>Daily interest</dt>
-                  <dd class="value-borrow-interest" #borrInterest>- {{getDailyBorrowInterest() | roundOff2Dec | usFormat}} {{asset.tag}}</dd>
+                  <dd class="value-borrow-interest" #borrInterest>{{getDailyBorrowInterest() | roundOff2Dec | usFormat}} {{asset.tag}}</dd>
                 </dl>
               </div>
               <div class="grid-cell">
                 <dl class="metadata">
                   <dt>Daily rewards</dt>
-                  <dd class="value-borrow-rewards" #borrRewards>+ ?? OMM</dd>
+                  <dd class="value-borrow-rewards" #borrRewards>0 OMM</dd>
                 </dl>
               </div>
             </div>

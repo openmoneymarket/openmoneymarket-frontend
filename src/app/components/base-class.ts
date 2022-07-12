@@ -1,5 +1,5 @@
 import {Utils} from "../common/utils";
-import {Asset, AssetTag, supportedAssetsMap} from "../models/Asset";
+import {Asset, AssetTag, supportedAssetsMap} from "../models/classes/Asset";
 import {BigNumber} from "bignumber.js";
 import {PersistenceService} from "../services/persistence/persistence.service";
 import {environment} from "../../environments/environment";
@@ -26,66 +26,16 @@ export class BaseClass {
     };
   })();
 
-  public roundDownTo2Decimals(value: BigNumber | string | undefined): string {
-    if (!value || !(new BigNumber(value).isFinite())) {
-      return "0";
-    }
-    return Utils.roundDownTo2Decimals(value);
+  public tooUSLocaleString(num?: BigNumber | string, defaultZero = false): string {
+    return Utils.tooUSLocaleString(num, defaultZero);
   }
 
-  public roundUpTo2Decimals(value: BigNumber | string | undefined): BigNumber {
-    if (!value || !(new BigNumber(value).isFinite())) {
-      return new BigNumber("0");
-    }
-    return Utils.roundUpTo2Decimals(value);
-  }
-
-  public roundDownToZeroDecimals(value: BigNumber | string | undefined): string {
-    if (!value || !(new BigNumber(value).isFinite())) {
-      return "0";
-    }
-    return Utils.roundDownToZeroDecimals(value);
-  }
-
-  public formatNumberToUSLocaleString(num?: BigNumber | string, defaultZero = false): string {
-    if (!num || !(new BigNumber(num).isFinite()) || (+num) <= 0) { return defaultZero ? "0" : "-"; }
-    if (typeof num === 'string') {
-      return Utils.formatNumberToUSLocaleString(new BigNumber(num));
-    } else {
-      return Utils.formatNumberToUSLocaleString(num);
-    }
-  }
-
-  public toDollarUSLocaleString(num?: BigNumber | string, defaultZero = false): string {
-    if (!num || !(new BigNumber(num).isFinite()) || (+num) <= 0) { return defaultZero ? "0" : "-"; }
-    return `$${this.formatNumberToUSLocaleString(num)}`;
-  }
-
-  public to2DecimalRoundedOffPercentString(num?: BigNumber | string, defaultZero = false): string {
-    if (!num || !(new BigNumber(num).isFinite()) || (+num) <= 0) { return defaultZero ? "0%" : "-"; }
-
-    // convert in to percentage
-    num = new BigNumber(num).multipliedBy(new BigNumber("100"));
-
-    // handle values smaller than 0.01%
-    if (num.isLessThan(new BigNumber("0.01"))) {
-      return Utils.handleSmallDecimal(num);
-    }
-
-    return `${(this.formatNumberToUSLocaleString(Utils.roundOffTo2Decimals(num)))}%`;
+  public to2DecimalRndOffPercString(num?: BigNumber | string, defaultZero = false): string {
+    return Utils.to2DecimalRndOffPercString(num, defaultZero);
   }
 
   public to0DecimalRoundedDownPercentString(num?: BigNumber | string, defaultZero = false): string {
-    if (!num || !(new BigNumber(num).isFinite()) || (+num) <= 0) { return defaultZero ? "0%" : "-"; }
-
-    // convert in to percentage
-    num = new BigNumber(num).multipliedBy(new BigNumber("100"));
-
-    if (num.isLessThan(1)) {
-      return defaultZero ? "0%" : "-";
-    }
-
-    return `${(this.formatNumberToUSLocaleString(Utils.roundDownToZeroDecimals(num)))}%`;
+    return Utils.to0DecimalRoundedDownPercentString(num, defaultZero);
   }
 
   public hideElement(hide: boolean): any {
@@ -94,10 +44,6 @@ export class BaseClass {
 
   public hideElementOrDisplayContents(hide: boolean): any {
     return {display: hide ? 'none' : 'contents'};
-  }
-
-  public displayAsTableRowOrHide(show: boolean): any {
-    return {display: show ? 'table-row' : 'none'};
   }
 
   public displayAsBlockOrHide(show: boolean): any {
@@ -134,11 +80,17 @@ export class BaseClass {
   }
 
   setText(htmlElement: any, text: string): void {
-    htmlElement.textContent = text;
+    if (htmlElement) {
+      htmlElement.textContent = text;
+    }
   }
 
   getText(htmlElement: any): string {
     return htmlElement.textContent ?? "";
+  }
+
+  toZeroIfDash(dash: string): string {
+    return dash === "-" ? "0" : dash;
   }
 
   makeAbsolute(value: BigNumber): BigNumber {
@@ -151,6 +103,16 @@ export class BaseClass {
 
   isProduction(): boolean {
     return environment.production;
+  }
+
+  public timestampInMillisecondsToPrettyDate(timestamp?: BigNumber): string {
+    if (!timestamp) { return ""; }
+    return Utils.timestampInMillisecondsToPrettyDate(timestamp);
+  }
+
+  public addTimestampToNowToPrettyDate(timestamp?: BigNumber): string {
+    if (!timestamp) { return ""; }
+    return this.timestampInMillisecondsToPrettyDate(Utils.timestampNowMilliseconds().plus(timestamp));
   }
 
 }
