@@ -211,9 +211,12 @@ export class CalculationsService {
 
   /** Formulae: Omm's Voting Power/Total staked OMM tokens */
   public votingPower(userNewbOmmBalance: BigNumber = new BigNumber(0)): BigNumber {
+    log.debug(`votingPower():`);
     const ommVotingPower = this.ommVotingPower();
     const totalbOmmBalance = this.persistenceService.bOmmTotalSupply.plus(userNewbOmmBalance.minus(
       this.persistenceService.userbOmmBalance));
+    log.debug(`ommVotingPower = ${ommVotingPower}`);
+    log.debug(`totalbOmmBalance = ${totalbOmmBalance}`);
 
     if (ommVotingPower.isZero() || totalbOmmBalance.isZero()) {
       return new BigNumber("0");
@@ -224,9 +227,13 @@ export class CalculationsService {
 
   /** (totalLiquidity of sICX - totalborrow of sICX) * (sICX/ICX ratio) */
   public ommVotingPower(): BigNumber {
+    log.debug("ommVotingPower():");
     const totalLiquiditySicx = this.persistenceService.getAssetReserveData(AssetTag.ICX)?.totalLiquidity ?? new BigNumber("0");
     const totalborrowSicx = this.persistenceService.getAssetReserveData(AssetTag.ICX)?.totalBorrows ?? new BigNumber("0");
     const sIcxIcxRatio = this.persistenceService.sIcxToIcxRate();
+    log.debug(`totalLiquiditySicx = ${totalLiquiditySicx}`);
+    log.debug(`totalborrowSicx = ${totalborrowSicx}`);
+    log.debug(`totalborrowSicx = ${totalborrowSicx}`);
 
     return ((totalLiquiditySicx.minus(totalborrowSicx)).multipliedBy(sIcxIcxRatio)).dp(2);
   }
