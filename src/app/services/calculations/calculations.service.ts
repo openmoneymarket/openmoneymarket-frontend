@@ -1033,7 +1033,7 @@ export class CalculationsService {
 
     this.persistenceService.userPoolsDataMap.forEach((value: UserPoolData, poolId: string) => {
       if (!value.userStakedBalance.isZero()) {
-        log.debug(`***** Pool = ${value.getCleanPoolName()} *******`);
+        log.debug(`***** Pool = ${value.cleanPoolName} *******`);
 
         const userPoolLiquidityApr = this.calculateUserPoolLiquidityApr(value);
         const poolLiquidityApr = this.calculatePoolLiquidityApr(this.persistenceService.allPoolsDataMap.get(poolId));
