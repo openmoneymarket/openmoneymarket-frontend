@@ -1,1 +1,0 @@
-{"version":3,"file":"magic-login.d.ts","sourceRoot":"","sources":["../../src/lib/magic-login.ts"],"names":[],"mappings":"AAAA,OAAO,EAAC,KAAK,EAAmC,MAAM,WAAW,CAAC;AAClE,OAAO,EAAC,cAAc,EAAC,MAAM,6BAA6B,CAAC;AAK3D,OAAO,EAAC,kBAAkB,EAAC,MAAM,gCAAgC,CAAC;AAIlE,wBAAsB,UAAU,CAAC,KAAK,EAAE,KAAK,EAAE,KAAK,EAAE,MAAM,EAAE,cAAc,EAAE,cAAc,GAAG,OAAO,CAAC,kBAAkB,CAAC,CAuGzH"}

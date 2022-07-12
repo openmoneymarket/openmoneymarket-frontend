@@ -1,1 +1,0 @@
-{"version":3,"file":"bridgeError.d.ts","sourceRoot":"","sources":["../../../../src/lib/models/errors/bridgeError.ts"],"names":[],"mappings":"AAAA;;KAEK;AACL,qBAAa,WAAY,SAAQ,KAAK;IAClC,aAAa,CAAC,EAAE,GAAG,CAAC;IACpB,mBAAmB,EAAE,MAAM,CAAC;gBAEhB,mBAAmB,GAAE,MAAmD,EAAE,aAAa,CAAC,EAAE,GAAG;CAQ5G"}

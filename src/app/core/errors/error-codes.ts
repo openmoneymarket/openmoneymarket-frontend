@@ -1,4 +1,0 @@
-export enum ErrorCodes {
-  USER_NOT_LOGGED_IN = 1000,
-  ALL_SCORE_ADDRESSES_NOT_LOADED = 1001
-}

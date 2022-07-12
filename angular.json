@@ -31,15 +31,6 @@
               "src/styles.css"
             ],
             "scripts": [
-              "src/assets/js/vendor/modernizr-3.11.2.min.js",
-              "src/assets/js/vendor/jquery-3.4.1.min.js",
-              "src/assets/js/vendor/js.cookie-2.2.1.min.js",
-              "src/assets/js/vendor/classie.js",
-              "src/assets/js/vendor/nouislider.min.js",
-              "src/assets/js/vendor/wnumb.min.js",
-              "src/assets/js/vendor/lightweight-charts.standalone.production.js",
-              "src/assets/js/plugins.js",
-              "src/assets/js/formats.js"
             ]
           },
           "configurations": {
