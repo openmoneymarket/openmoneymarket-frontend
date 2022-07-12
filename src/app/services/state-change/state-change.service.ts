@@ -233,6 +233,8 @@ export class StateChangeService {
   }
 
   public userOmmDailyRewardsUpdate(rewards: UserDailyOmmReward): void {
+    log.debug(`User daily OMM rewards (SCORE):`);
+    log.debug(rewards);
     this.persistenceService.userDailyOmmRewards = rewards;
     this.userOmmDailyRewardsChange.next(rewards);
   }
