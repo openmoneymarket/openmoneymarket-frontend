@@ -213,8 +213,9 @@ export class CalculationsService {
   public votingPower(userNewbOmmBalance: BigNumber = new BigNumber(0)): BigNumber {
     log.debug(`calculation service votingPower():`);
     const ommVotingPower = this.ommVotingPower();
-    const totalbOmmBalance = this.persistenceService.bOmmTotalSupply.plus(userNewbOmmBalance.minus(
-      this.persistenceService.userbOmmBalance));
+    const userbOmmDiff = userNewbOmmBalance.isZero() ? Utils.ZERO : userNewbOmmBalance.minus(
+      this.persistenceService.userbOmmBalance);
+    const totalbOmmBalance = this.persistenceService.bOmmTotalSupply.plus(userbOmmDiff);
     log.debug(`ommVotingPower = ${ommVotingPower}`);
     log.debug(`totalbOmmBalance = ${totalbOmmBalance}`);
     log.debug(`userNewbOmmBalance = ${userNewbOmmBalance}`);
