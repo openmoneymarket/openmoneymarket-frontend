@@ -711,9 +711,13 @@ export class AssetComponent extends BaseClass implements OnInit, OnDestroy, Afte
   }
 
   updateUserDynamicBorrowApy(borrowed: BigNumber, userDailyBorrowOmmReward: BigNumber): void {
+    log.debug(`updateUserDynamicBorrowApy for asset: ${this.asset.tag}`);
     if (this.ommApyChecked) {
-      this.dynamicBorrowApy = this.userMarketsBorrowApy.plus(this.calculationService.calculateUserDynamicBorrowApy(userDailyBorrowOmmReward,
-        borrowed, this.asset.tag));
+      const calculatedDynamicBorrowApy = this.calculationService.calculateUserDynamicBorrowApy(userDailyBorrowOmmReward,
+        borrowed, this.asset.tag);
+      this.dynamicBorrowApy = this.userMarketsBorrowApy.plus(calculatedDynamicBorrowApy);
+      log.debug(`calculatedDynamicBorrowApy = ${calculatedDynamicBorrowApy}`);
+      log.debug(`userMarketsBorrowApy = ${this.userMarketsBorrowApy}`);
     }
   }
 
