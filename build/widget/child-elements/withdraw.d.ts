@@ -3,10 +3,9 @@ import { User } from '../../lib/models/User/User';
 declare class WithdrawElement extends LitElement {
     constructor();
     static styles: any[];
+    stablyWithdrawUrl: string;
     user: User | undefined;
-    iframeUrl: string;
     private backToHomeViewEvent;
-    protected updated(_changedProperties: Map<string, any>): void;
     protected render(): unknown;
 }
 declare global {

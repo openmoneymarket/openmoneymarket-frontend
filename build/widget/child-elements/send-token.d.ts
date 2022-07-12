@@ -24,7 +24,6 @@ declare class SendToken extends LitElement {
     constructor();
     static styles: any[];
     private showConfirmationView;
-    private handleSessionExpired;
     private transferTokens;
     private amountChange;
     private selectedTokenChange;

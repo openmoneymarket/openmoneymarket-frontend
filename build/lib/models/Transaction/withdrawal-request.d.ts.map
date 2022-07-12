@@ -1,0 +1,1 @@
+{"version":3,"file":"withdrawal-request.d.ts","sourceRoot":"","sources":["../../../../src/lib/models/Transaction/withdrawal-request.ts"],"names":[],"mappings":"AAAA,qBAAa,iBAAiB;IAC1B,EAAE,EAAE,GAAG,CAAC;IACR,qBAAqB,EAAE,MAAM,CAAC;gBAGlB,EAAE,EAAE,GAAG,EAAE,qBAAqB,EAAE,MAAM;CAIrD"}

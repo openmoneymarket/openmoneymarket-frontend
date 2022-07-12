@@ -1,0 +1,1 @@
+{"version":3,"file":"WebhookConfig.d.ts","sourceRoot":"","sources":["../../../../src/lib/models/PrimeTrust/WebhookConfig.ts"],"names":[],"mappings":"AACA,qBAAa,aAAa;IACtB,YAAY,EAAE,MAAM,CAAC;IACrB,OAAO,EAAE,OAAO,CAAC;IACjB,YAAY,EAAE,MAAM,CAAC;IACrB,GAAG,EAAE,MAAM,CAAC;gBAGA,YAAY,EAAE,MAAM,EAAE,OAAO,EAAE,OAAO,EAAE,YAAY,EAAE,MAAM,EAAE,GAAG,EAAE,MAAM;CAMxF"}
