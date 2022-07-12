@@ -112,6 +112,7 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   initCoreStaticValues(): void {
+    log.debug("voteComponent initCoreStaticValues:");
     this.latestProposals = this.persistenceService.proposalList.slice(0, 3);
     this.yourVotesEditMode = false;
     this.voteOverviewEditMode = false;
@@ -418,10 +419,13 @@ export class VoteComponent extends BaseClass implements OnInit, AfterViewInit {
   }
 
   resetVotingPowerPerIcx(): void {
+    log.debug(`resetVotingPowerPerIcx()`);
     this.setVotingPowerPerIcx(this.votingPower);
   }
 
   setVotingPowerPerIcx(votingPower: BigNumber): void {
+    log.debug(`setVotingPowerPerIcx: votingPower = ${votingPower}`);
+
     const text = `1 bOMM = ${this.tooUSLocaleString(votingPower.dp(2))} ICX`;
     this.setText(this.votingPowerPerIcxEl, text);
   }
